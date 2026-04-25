@@ -8,20 +8,20 @@ from agent import get_core_prompt
 from agent.memory import vera_memory
 from agent.planner import vera_planner
 from tools import get_default_tools
+from config import GROQ_MODEL
 
 
 class VERAExecutor:
     """
     The Operational Core of V.E.R.A.
-    Now implements:
     PLAN → STEP EXECUTION → STATE LOGGING → MEMORY
     """
 
     def __init__(self):
-        # 🔥 LLM Initialization (optimized for reasoning)
+        # 🔥 LLM Initialization (FIXED: no deprecated model)
         self.llm = ChatGroq(
             temperature=0.2,
-            model_name="llama3-70b-8192",
+            model_name=GROQ_MODEL,   # ✅ now dynamic from config
             groq_api_key=os.getenv("GROQ_API_KEY")
         )
 
@@ -44,7 +44,7 @@ class VERAExecutor:
             tools=self.tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=6,  # reduced for stability + speed
+            max_iterations=6,
             early_stopping_method="generate",
             return_intermediate_steps=True
         )
@@ -53,7 +53,7 @@ class VERAExecutor:
         """
         Executes a single step with retry logic.
         """
-        for attempt in range(2):  # retry once
+        for attempt in range(2):
             try:
                 response = await self.executor.ainvoke({
                     "input": step_input,
@@ -74,7 +74,6 @@ class VERAExecutor:
             # 🧠 1. GENERATE PLAN
             plan = await vera_planner.generate_plan(instruction)
 
-            # 🧾 Extract plan details
             goal = plan.get("goal", instruction)
             tasks = plan.get("tasks", [])
 
@@ -90,7 +89,7 @@ class VERAExecutor:
                 step_desc = task.get("description", "")
                 tool_type = task.get("tool_required", "None")
 
-                # 🎯 TOOL GUIDANCE (boosts accuracy)
+                # 🎯 TOOL GUIDANCE
                 if tool_type == "Calculator":
                     step_input = f"Use mathematical reasoning or calculator tools: {step_desc}"
                 elif tool_type == "Search":
@@ -104,7 +103,7 @@ class VERAExecutor:
                 # 🧾 Log step
                 steps_log.append((step_desc, step_output))
 
-                # Update final output (last step wins)
+                # Update final output
                 final_output = step_output
 
             # 🧠 4. UPDATE MEMORY
