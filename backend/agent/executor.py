@@ -16,7 +16,7 @@ class VERAExecutor:
 
     def __init__(self):
         self.llm = ChatGroq(
-            temperature=0.2,
+            temperature=0.3,
             model_name=GROQ_MODEL,
             groq_api_key=os.getenv("GROQ_API_KEY")
         )
@@ -33,43 +33,56 @@ class VERAExecutor:
         self.executor = AgentExecutor(
             agent=self._agent,
             tools=self.tools,
-            verbose=True,
+            verbose=False,
             handle_parsing_errors=True,
             max_iterations=5,
             early_stopping_method="force",
             return_intermediate_steps=True
         )
 
-    # 🔥 STEP-BY-STEP ARITHMETIC
-    def _solve_arithmetic(self, expr: str):
+    # 🔥 BODMAS STEP SOLVER
+    def _solve_bodmas(self, expr: str):
         steps = []
+        expr = expr.replace(" ", "")
+
         try:
-            clean = expr.replace(" ", "")
-            result = eval(clean)
-            steps.append((f"Evaluate expression: {clean}", str(result)))
-            return steps, str(result)
+            # Step 1: Division and Multiplication
+            while re.search(r"\d+(\.\d+)?[*/]\d+(\.\d+)?", expr):
+                match = re.search(r"\d+(\.\d+)?[*/]\d+(\.\d+)?", expr)
+                sub = match.group()
+                result = eval(sub)
+                steps.append((f"{sub}", str(result)))
+                expr = expr.replace(sub, str(result), 1)
+
+            # Step 2: Addition and Subtraction
+            while re.search(r"\d+(\.\d+)?[+-]\d+(\.\d+)?", expr):
+                match = re.search(r"\d+(\.\d+)?[+-]\d+(\.\d+)?", expr)
+                sub = match.group()
+                result = eval(sub)
+                steps.append((f"{sub}", str(result)))
+                expr = expr.replace(sub, str(result), 1)
+
+            return steps, expr
+
         except Exception as e:
             return [("Error", str(e))], f"ERROR: {str(e)}"
 
-    # 🔥 CORRECT PRIME CHECK
+    # 🔥 PRIME CHECK (CORRECT)
     def _check_prime(self, n: int):
         steps = []
 
         if n < 2:
-            steps.append((f"{n} < 2", "Not prime"))
-            return steps, f"{n} is not prime"
+            return [(f"{n} < 2", "Not prime")], f"{n} is not prime"
 
         if n == 2:
-            steps.append(("2 is smallest prime", "Prime"))
-            return steps, "2 is prime"
+            return [("2 is prime", "")], "2 is prime"
 
         if n % 2 == 0:
-            steps.append((f"{n} divisible by 2", "Composite"))
-            return steps, f"{n} is composite"
+            return [(f"{n} divisible by 2", "Composite")], f"{n} is composite"
 
         i = 3
         while i * i <= n:
-            steps.append((f"Check divisibility by {i}", "No"))
+            steps.append((f"Check {n} % {i}", "Not divisible"))
             if n % i == 0:
                 steps.append((f"{n} divisible by {i}", "Composite"))
                 return steps, f"{n} is composite"
@@ -78,85 +91,67 @@ class VERAExecutor:
         steps.append(("No divisors found", "Prime"))
         return steps, f"{n} is prime"
 
-    # 🔥 MODULAR INVERSE (WITH STEPS)
-    def _mod_inverse(self, a: int, m: int):
-        steps = []
+    # 🔥 RSA / EXPLANATION HANDLER
+    async def _handle_explanation(self, instruction: str):
         try:
-            steps.append((f"Compute inverse of {a} mod {m}", "Using pow()"))
-            result = pow(a, -1, m)
-            steps.append((f"Result", str(result)))
-            return steps, str(result)
-        except Exception:
-            return [("No inverse exists", "")], "No modular inverse exists"
+            response = await self.llm.ainvoke(
+                f"Explain clearly with steps and simple structure:\n\n{instruction}"
+            )
+            return str(response.content)
+        except Exception as e:
+            return f"EXPLANATION_ERROR: {str(e)}"
 
     # 🔥 ROUTER
-    def _handle_math(self, instruction: str):
-        text = instruction.lower()
-
-        # Arithmetic
-        if any(op in text for op in ["+", "-", "*", "/"]):
-            return self._solve_arithmetic(instruction)
-
-        # Prime
-        if "prime" in text:
-            nums = re.findall(r"\d+", instruction)
-            if nums:
-                return self._check_prime(int(nums[0]))
-
-        # Modular inverse
-        if "mod" in text or "inverse" in text:
-            nums = re.findall(r"\d+", instruction)
-            if len(nums) >= 2:
-                return self._mod_inverse(int(nums[0]), int(nums[1]))
-
-        return None, None
-
-    async def _execute_step(self, step_input: str, chat_history: list) -> str:
-        try:
-            response = await self.executor.ainvoke({
-                "input": step_input,
-                "chat_history": chat_history
-            })
-            return response.get("output", "")
-        except Exception as e:
-            return f"STEP_FAILED: {str(e)}"
-
     async def execute(self, instruction: str) -> Dict[str, Any]:
         try:
-            # 🔥 MATH HANDLING FIRST
-            steps, final = self._handle_math(instruction)
+            text = instruction.lower()
 
-            if steps:
-                vera_memory.add_exchange(instruction, final)
+            # 🧮 Arithmetic
+            if any(op in text for op in ["+", "-", "*", "/"]):
+                steps, final = self._solve_bodmas(instruction)
                 return {
                     "goal": instruction,
                     "steps": steps,
                     "final_output": final
                 }
 
-            # 🧠 FALLBACK TO AGENT
+            # 🔢 Prime check
+            if "prime" in text:
+                nums = re.findall(r"\d+", instruction)
+                if nums:
+                    steps, final = self._check_prime(int(nums[0]))
+                    return {
+                        "goal": instruction,
+                        "steps": steps,
+                        "final_output": final
+                    }
+
+            # 🔐 Explanation (RSA etc.)
+            if "explain" in text or "what is" in text:
+                explanation = await self._handle_explanation(instruction)
+                return {
+                    "goal": instruction,
+                    "steps": [("Explanation", "Generated using AI")],
+                    "final_output": explanation
+                }
+
+            # 🤖 Fallback agent
             plan = await vera_planner.generate_plan(instruction)
-
-            goal = plan.get("goal", instruction)
             tasks = plan.get("tasks", [])
-
-            context = vera_memory.get_context()
-            chat_history = context.get("chat_history", [])
 
             steps_log: List[Tuple[str, str]] = []
             final_output = ""
 
             for task in tasks:
                 step_desc = task.get("description", "")
-                step_output = await self._execute_step(step_desc, chat_history)
+                result = await self.executor.ainvoke({"input": step_desc})
+                output = result.get("output", "")
 
-                steps_log.append((step_desc, step_output))
-                final_output = step_output
-
-            vera_memory.add_exchange(instruction, final_output)
+                steps_log.append((step_desc, output))
+                final_output = output
 
             return {
-                "goal": goal,
+                "goal": instruction,
                 "steps": steps_log,
                 "final_output": final_output
             }
