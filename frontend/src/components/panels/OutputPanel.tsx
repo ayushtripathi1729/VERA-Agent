@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import TypingEffect from "../ui/TypingEffect";
+import TypingEffect from "../../ui/TypingEffect";
 import Terminal from "../ui/Terminal";
 
 type Props = {
