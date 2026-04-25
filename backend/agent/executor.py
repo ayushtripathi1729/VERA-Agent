@@ -1,61 +1,74 @@
 import os
-from typing import List, Dict, Any
+from typing import Dict, Any
 from langchain_groq import ChatGroq
 from langchain.agents import AgentExecutor, create_tool_calling_agent
+
+# Direct sub-module imports for Python 3.14 compatibility
 from agent import get_core_prompt
-from agent.tools.registry import get_default_tools
+from agent.memory import vera_memory
+from agent.tools import get_default_tools
 
 class VERAExecutor:
     """
     The Operational Core of V.E.R.A.
-    Handles the orchestration of LLM reasoning and tool execution.
+    Coordinates LLM reasoning, Memory retrieval, and Tool execution.
     """
 
     def __init__(self):
-        # Initializing the LPU-powered Llama 3 model
+        # Initialize the LPU-powered Llama 3 model
+        # Temperature is low (0.2) to ensure mathematical and technical accuracy.
         self.llm = ChatGroq(
-            temperature=0.2, # Low temperature for high technical precision
+            temperature=0.2,
             model_name="llama3-70b-8192",
             groq_api_key=os.getenv("GROQ_API_KEY")
         )
         
-        # Pulling the centralized prompt DNA from __init__.py
+        # Load the centralized System DNA
         self.prompt = get_core_prompt()
         
-        # Initializing the toolbelt
+        # Load the sensory and logic toolbelt
         self.tools = get_default_tools()
         
-        # Creating the internal agentic brain
+        # Initialize the agent logic
         self._agent = create_tool_calling_agent(self.llm, self.tools, self.prompt)
         
-        # The Executor handles the "loop" (Thinking -> Acting -> Observing)
+        # The Executor manages the Thought-Action-Observation loop
         self.executor = AgentExecutor(
             agent=self._agent,
             tools=self.tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=5 # Preventing infinite loops in complex math problems
+            max_iterations=10,      # High depth for complex math conjectures
+            return_intermediate_steps=True
         )
 
-    async def run(self, instruction: str) -> Dict[str, Any]:
+    async def execute(self, instruction: str) -> str:
         """
-        Executes a high-level instruction and returns structured logs.
+        The primary execution entry point. 
+        Handles stateful memory and asynchronous processing.
         """
         try:
-            # We use ainvoke for non-blocking execution on Render
-            response = await self.executor.ainvoke({"input": instruction})
-            
-            return {
-                "status": "SUCCESS",
-                "output": response["output"],
-                "intermediate_steps": response.get("intermediate_steps", [])
-            }
-        except Exception as e:
-            return {
-                "status": "CRITICAL_ERROR",
-                "output": f"Internal Core Failure: {str(e)}",
-                "node": "JKIAPT_PRAYAGRAJ_NODE_01"
-            }
+            # 1. Retrieve the last 5 exchanges from the Neural Memory
+            context = vera_memory.get_context()
+            chat_history = context.get("chat_history", [])
 
-# Singleton instance for high-performance reuse
+            # 2. Invoke the agentic reasoning process
+            response = await self.executor.ainvoke({
+                "input": instruction,
+                "chat_history": chat_history
+            })
+
+            final_output = response["output"]
+
+            # 3. Commit the new exchange to the sliding window memory
+            vera_memory.add_exchange(instruction, final_output)
+
+            return final_output
+
+        except Exception as e:
+            # Error recovery for Node JKIAPT_01
+            print(f"[!] EXECUTOR_CRITICAL: {str(e)}")
+            return f"SYSTEM_FAILURE: Unable to process instruction due to: {str(e)}"
+
+# Singleton instance for server-wide reuse
 vera_executor = VERAExecutor()
