@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Loader from "../ui/Loader";
+import Terminal from "../ui/Terminal";
 
 type Props = {
   steps: string[];
@@ -38,21 +39,17 @@ export default function StreamPanel({ steps, loading }: Props) {
   }, [steps]);
 
   return (
-    <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 h-[500px] flex flex-col glow-card">
+    <Terminal title="EXECUTION STREAM" height="h-[500px]">
 
-      {/* HEADER */}
+      {/* STATUS */}
       <div className="flex justify-between items-center mb-2">
-        <h2 className="text-blue-400 text-sm font-semibold tracking-wide">
-          EXECUTION STREAM
-        </h2>
-
         <span className="text-xs text-gray-400">
           {loading ? "RUNNING..." : "IDLE"}
         </span>
       </div>
 
-      {/* STREAM */}
-      <div className="flex-1 overflow-y-auto text-sm font-mono space-y-2 pr-1">
+      {/* STREAM CONTENT */}
+      <div className="text-sm font-mono space-y-2 pr-1">
 
         {steps.length === 0 && (
           <p className="text-gray-500">No execution yet...</p>
@@ -82,6 +79,7 @@ export default function StreamPanel({ steps, loading }: Props) {
 
         <div ref={bottomRef} />
       </div>
-    </div>
+
+    </Terminal>
   );
 }
