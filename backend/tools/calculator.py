@@ -2,129 +2,124 @@ import math
 import re
 from langchain_core.tools import tool
 
+# 🔐 Strict allowed math functions
+SAFE_FUNCTIONS = {
+    "abs": abs,
+    "round": round,
+    "sqrt": math.sqrt,
+    "log": math.log,
+    "log10": math.log10,
+    "sin": math.sin,
+    "cos": math.cos,
+    "tan": math.tan,
+    "pi": math.pi,
+    "e": math.e,
+    "pow": pow
+}
 
-class NeuralCalculator:
+# 🔍 Safe expression validation
+SAFE_PATTERN = re.compile(r"^[0-9\.\+\-\*\/\^\(\)\s,a-zA-Z]+$")
+
+
+# -------------------- TOOLS --------------------
+
+@tool
+def basic_compute(expression: str) -> str:
     """
-    Advanced Mathematical Logic Node for V.E.R.A.
-    Specialized in Number Theory and safe computation.
+    Safely evaluates mathematical expressions.
+    Example: 'sqrt(144) + log10(100)'
     """
+    try:
+        if not expression or not SAFE_PATTERN.match(expression):
+            return "COMPUTE_ERROR: Invalid or unsafe expression."
 
-    # 🔐 Strict allowed math functions
-    SAFE_FUNCTIONS = {
-        "abs": abs,
-        "round": round,
-        "sqrt": math.sqrt,
-        "log": math.log,
-        "log10": math.log10,
-        "sin": math.sin,
-        "cos": math.cos,
-        "tan": math.tan,
-        "pi": math.pi,
-        "e": math.e,
-        "pow": pow
-    }
+        expression = expression.replace("^", "**")
 
-    # 🔍 Safe expression validation (only math chars)
-    SAFE_PATTERN = re.compile(r"^[0-9\.\+\-\*\/\^\(\)\s,a-zA-Z]+$")
+        result = eval(expression, {"__builtins__": None}, SAFE_FUNCTIONS)
+        return str(result)
 
-    @tool
-    def basic_compute(self, expression: str) -> str:
-        """
-        Safely evaluates mathematical expressions.
-        Example: 'sqrt(144) + log10(100)'
-        """
-        try:
-            if not expression or not self.SAFE_PATTERN.match(expression):
-                return "COMPUTE_ERROR: Invalid or unsafe expression."
+    except Exception as e:
+        return f"COMPUTE_ERROR: {str(e)}"
 
-            # Replace ^ with ** for exponentiation
-            expression = expression.replace("^", "**")
 
-            result = eval(expression, {"__builtins__": None}, self.SAFE_FUNCTIONS)
-            return f"Result: {result}"
+@tool
+def modular_inverse(a: int, m: int) -> str:
+    """
+    Computes modular inverse using Python's pow().
+    """
+    try:
+        if m == 0:
+            return "ERROR: Modulus cannot be zero."
 
-        except Exception as e:
-            return f"COMPUTE_ERROR: {str(e)}"
+        result = pow(a, -1, m)
+        return str(result)
 
-    @tool
-    def modular_inverse(self, a: int, m: int) -> str:
-        """
-        Computes modular inverse using Python's optimized pow().
-        """
-        try:
-            if m == 0:
-                return "ERROR: Modulus cannot be zero."
+    except ValueError:
+        return f"No modular inverse exists (gcd({a}, {m}) ≠ 1)."
+    except Exception as e:
+        return f"ERROR: {str(e)}"
 
-            result = pow(a, -1, m)
-            return f"mod_inverse({a}, {m}) = {result}"
 
-        except ValueError:
-            return f"No modular inverse exists (gcd({a}, {m}) ≠ 1)."
-        except Exception as e:
-            return f"ERROR: {str(e)}"
+@tool
+def primality_test(n: int) -> str:
+    """
+    Efficient primality test.
+    """
+    try:
+        if n < 2:
+            return f"{n} is not prime."
 
-    @tool
-    def primality_test(self, n: int) -> str:
-        """
-        Efficient primality test (optimized trial division).
-        """
-        try:
-            if n < 2:
-                return f"{n} is not prime."
-
-            if n in (2, 3):
-                return f"{n} is prime."
-
-            if n % 2 == 0:
-                return f"{n} is composite (divisible by 2)."
-
-            # Optimized loop (6k ± 1)
-            i = 5
-            while i * i <= n:
-                if n % i == 0 or n % (i + 2) == 0:
-                    return f"{n} is composite (factor found)."
-                i += 6
-
+        if n in (2, 3):
             return f"{n} is prime."
 
-        except Exception as e:
-            return f"ERROR: {str(e)}"
+        if n % 2 == 0:
+            return f"{n} is composite (divisible by 2)."
 
-    @tool
-    def erdos_straus_check(self, n: int) -> str:
-        """
-        Attempts to verify Erdős–Straus conjecture: 4/n = 1/x + 1/y + 1/z
-        Uses optimized bounded search.
-        """
-        try:
-            if n < 2:
-                return "Invalid input: n must be ≥ 2."
+        i = 5
+        while i * i <= n:
+            if n % i == 0 or n % (i + 2) == 0:
+                return f"{n} is composite."
+            i += 6
 
-            LIMIT = 500  # reduced for performance
+        return f"{n} is prime."
 
-            for x in range(1, LIMIT):
-                for y in range(x, LIMIT):
-                    denom = (4 * x * y) - (n * y) - (n * x)
-                    if denom <= 0:
-                        continue
-
-                    if (n * x * y) % denom == 0:
-                        z = (n * x * y) // denom
-                        return f"4/{n} = 1/{x} + 1/{y} + 1/{z}"
-
-            return f"No solution found within search limit ({LIMIT})."
-
-        except Exception as e:
-            return f"ERROR: {str(e)}"
+    except Exception as e:
+        return f"ERROR: {str(e)}"
 
 
-# --- TOOL EXPORT ---
+@tool
+def erdos_straus_check(n: int) -> str:
+    """
+    Attempts Erdős–Straus decomposition: 4/n = 1/x + 1/y + 1/z
+    """
+    try:
+        if n < 2:
+            return "Invalid input: n must be ≥ 2."
+
+        LIMIT = 500
+
+        for x in range(1, LIMIT):
+            for y in range(x, LIMIT):
+                denom = (4 * x * y) - (n * y) - (n * x)
+                if denom <= 0:
+                    continue
+
+                if (n * x * y) % denom == 0:
+                    z = (n * x * y) // denom
+                    return f"4/{n} = 1/{x} + 1/{y} + 1/{z}"
+
+        return f"No solution found within limit ({LIMIT})."
+
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+
+# -------------------- EXPORT --------------------
 
 def get_calculator_tools():
-    calc = NeuralCalculator()
     return [
-        calc.basic_compute,
-        calc.modular_inverse,
-        calc.primality_test,
-        calc.erdos_straus_check
+        basic_compute,
+        modular_inverse,
+        primality_test,
+        erdos_straus_check
     ]
