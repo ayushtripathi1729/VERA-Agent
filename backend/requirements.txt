@@ -1,7 +1,7 @@
 # --- CORE WEB SERVER ---
 fastapi==0.115.0
 uvicorn[standard]==0.31.0
-pydantic==2.9.2
+pydantic>=2.10.0
 python-dotenv==1.0.1
 gunicorn==23.0.0
 
@@ -18,5 +18,5 @@ requests==2.32.3
 httpx==0.27.2
 
 # --- UTILITIES ---
-numpy==1.26.4
+numpy>=2.0.0
 typing-extensions==4.12.2
