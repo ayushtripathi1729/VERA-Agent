@@ -4,40 +4,42 @@ import { useEffect, useState } from "react";
 
 type Props = {
   loading: boolean;
+  latency: number;
 };
 
-export default function StatusBar({ loading }: Props) {
+export default function StatusBar({ loading, latency }: Props) {
   const [time, setTime] = useState("");
-  const [latency, setLatency] = useState(0);
 
+  // ⏱ Live clock
   useEffect(() => {
     const interval = setInterval(() => {
-      const now = new Date();
-      setTime(now.toLocaleTimeString());
+      setTime(new Date().toLocaleTimeString());
     }, 1000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // fake latency simulation
-  useEffect(() => {
-    if (loading) {
-      setLatency(Math.floor(Math.random() * 400) + 200);
-    }
-  }, [loading]);
-
   return (
-    <div className="bg-slate-900/70 border border-slate-700 rounded-lg px-4 py-2 flex justify-between items-center text-xs text-gray-400 backdrop-blur">
+    <div className="bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2 flex justify-between items-center text-xs text-gray-400 backdrop-blur glow-card">
 
-      <div className="flex gap-4">
+      {/* LEFT SIDE */}
+      <div className="flex gap-4 flex-wrap">
         <span>🧠 MODEL: Llama3-70B</span>
-        <span>⚡ LATENCY: {loading ? `${latency}ms` : "--"}</span>
-        <span>🟢 STATUS: {loading ? "PROCESSING" : "READY"}</span>
+
+        <span>
+          ⚡ LATENCY: {latency ? `${latency}ms` : "--"}
+        </span>
+
+        <span className={loading ? "text-yellow-400" : "text-green-400"}>
+          {loading ? "🟡 PROCESSING" : "🟢 READY"}
+        </span>
       </div>
 
+      {/* RIGHT SIDE */}
       <div>
         ⏱ {time}
       </div>
+
     </div>
   );
 }
