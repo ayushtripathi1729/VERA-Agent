@@ -5,6 +5,7 @@ import { useExecution } from "@/hooks/useExecution";
 import InputPanel from "../panels/InputPanel";
 import StreamPanel from "../panels/StreamPanel";
 import OutputPanel from "../panels/OutputPanel";
+import ImagePanel from "../panels/ImagePanel";
 
 export default function VeraDashboard() {
   // 🧠 Core Hook
@@ -33,27 +34,35 @@ export default function VeraDashboard() {
       </div>
 
       {/* 🧩 MAIN GRID */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
 
-        {/* LEFT */}
-        <InputPanel
-          input={input}
-          setInput={setInput}
-          execute={execute}
-          loading={loading}
-        />
+        {/* LEFT PANEL */}
+        <div className="col-span-1 flex flex-col gap-4">
+          <InputPanel
+            input={input}
+            setInput={setInput}
+            execute={execute}
+            loading={loading}
+          />
 
-        {/* CENTER */}
-        <StreamPanel
-          steps={steps}
-          loading={loading}
-        />
+          <ImagePanel input={input} />
+        </div>
 
-        {/* RIGHT */}
-        <OutputPanel
-          output={output}
-          goal={goal}
-        />
+        {/* CENTER PANEL */}
+        <div className="col-span-2">
+          <StreamPanel
+            steps={steps}
+            loading={loading}
+          />
+        </div>
+
+        {/* RIGHT PANEL */}
+        <div className="col-span-1">
+          <OutputPanel
+            output={output}
+            goal={goal}
+          />
+        </div>
 
       </div>
     </div>
