@@ -3,10 +3,11 @@ from typing import Dict, Any
 from langchain_groq import ChatGroq
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 
-# Direct sub-module imports for Python 3.14 compatibility
+# FIXED IMPORTS: 
+# Since 'tools' is a sibling to 'agent', we import from top-level 'tools'
 from agent import get_core_prompt
 from agent.memory import vera_memory
-from agent.tools import get_default_tools
+from tools import get_default_tools 
 
 class VERAExecutor:
     """
@@ -26,7 +27,7 @@ class VERAExecutor:
         # Load the centralized System DNA
         self.prompt = get_core_prompt()
         
-        # Load the sensory and logic toolbelt
+        # Load the sensory and logic toolbelt from backend/tools/
         self.tools = get_default_tools()
         
         # Initialize the agent logic
