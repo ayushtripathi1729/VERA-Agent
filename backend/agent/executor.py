@@ -18,10 +18,10 @@ class VERAExecutor:
     """
 
     def __init__(self):
-        # 🔥 LLM Initialization (FIXED: no deprecated model)
+        # 🔥 LLM Initialization (no deprecated models)
         self.llm = ChatGroq(
             temperature=0.2,
-            model_name=GROQ_MODEL,   # ✅ now dynamic from config
+            model_name=GROQ_MODEL,
             groq_api_key=os.getenv("GROQ_API_KEY")
         )
 
@@ -38,7 +38,7 @@ class VERAExecutor:
             self.prompt
         )
 
-        # ⚙️ Executor (controlled loop)
+        # ⚙️ Executor
         self.executor = AgentExecutor(
             agent=self._agent,
             tools=self.tools,
@@ -60,7 +60,6 @@ class VERAExecutor:
                     "chat_history": chat_history
                 })
                 return response.get("output", "")
-
             except Exception as e:
                 if attempt == 1:
                     return f"STEP_FAILED: {str(e)}"
@@ -118,7 +117,6 @@ class VERAExecutor:
 
         except Exception as e:
             print(f"[!] EXECUTOR_CRITICAL: {str(e)}")
-
             return {
                 "goal": instruction,
                 "steps": [],
