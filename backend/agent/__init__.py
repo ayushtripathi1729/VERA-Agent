@@ -1,16 +1,11 @@
-"""
-V.E.R.A. Neural Agent Module
-Author: The Hacksmiths (JKIAPT)
-Version: 1.0.0
-"""
-
 import os
 from typing import List
 from langchain_groq import ChatGroq
 from langchain_community.tools.tavily_search import TavilyAnswer
+
+# UPDATED IMPORTS FOR STABILITY
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-
 # --- AGENT INITIALIZATION ---
 
 def initialize_vera_agent():
