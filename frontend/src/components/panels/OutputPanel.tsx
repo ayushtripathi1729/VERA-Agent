@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import TypingEffect from "../ui/TypingEffect";
+import Terminal from "../ui/Terminal";
 
 type Props = {
   output: string;
@@ -89,17 +90,11 @@ export default function OutputPanel({ output, goal }: Props) {
           </div>
         )}
 
-        {/* ✅ RESULT */}
+        {/* ✅ RESULT (Terminal Styled) */}
         {output && (
-          <div>
-            <h3 className="text-green-400 font-semibold mb-1">
-              ✅ Result
-            </h3>
-
-            <div className="bg-black p-3 rounded border border-slate-600 text-green-300">
-              <TypingEffect text={output} />
-            </div>
-          </div>
+          <Terminal title="RESULT" height="h-[220px]">
+            <TypingEffect text={output} />
+          </Terminal>
         )}
 
         <div ref={bottomRef} />
