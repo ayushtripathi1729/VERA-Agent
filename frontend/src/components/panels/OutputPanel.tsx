@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import TypingEffect from "../ui/TypingEffect";
-import Terminal from "../ui/Terminal";
+import Terminal from "../terminal/Terminal";
 
 type Props = {
   output: string;
