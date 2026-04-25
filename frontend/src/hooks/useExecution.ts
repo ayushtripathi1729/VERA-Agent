@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { streamVera } from "@/services/vera.stream";
+import { streamVera } from "../services/vera.stream";
 
 export function useExecution() {
   const [input, setInput] = useState("");
