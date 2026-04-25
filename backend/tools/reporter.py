@@ -1,60 +1,55 @@
+import os
 from datetime import datetime
-from typing import List, Dict, Any
-from langchain_groq import ChatGroq
-from langchain_core.prompts import ChatPromptTemplate
+from typing import Dict, Any, List
 
 class NeuralReporter:
     """
-    Synthesis Layer for V.E.R.A.
-    Converts execution logs and tool outputs into a polished, 
-    human-readable final report.
+    Synthesis & Formatting Engine for V.E.R.A.
+    Transforms raw execution data into structured intelligence reports.
     """
 
     def __init__(self):
-        # Using 70b to ensure high-quality linguistic synthesis
-        self.llm = ChatGroq(
-            temperature=0.5, # Slightly higher for better flow/readability
-            model_name="llama3-70b-8192"
-        )
+        self.node_id = "JKIAPT_PRAYAGRAJ_NODE_01"
 
-        self.prompt = ChatPromptTemplate.from_template("""
-            SYSTEM_PROTOCOL: REPORTER_v3
-            OPERATOR: Ayush Tripathi (JKIAPT)
-            
-            ROLE:
-            You are the communication interface for V.E.R.A.
-            Your task is to take a sequence of 'Execution Logs' and 'Tool Outputs' 
-            and synthesize them into a concise, professional executive summary.
-            
-            FORMATTING RULES:
-            1. Use Markdown for clarity (Bold headers, bullet points).
-            2. Start with a 'Status: SUCCESS/FAIL' indicator.
-            3. Highlight key mathematical or security findings.
-            4. End with 'TIMESTAMP: {timestamp}'.
-            
-            EXECUTION DATA:
-            {execution_data}
-            
-            FINAL SYNTHESIS:
-        """)
-
-    async def synthesize_report(self, raw_logs: List[Dict[str, Any]]) -> str:
+    def generate_executive_summary(self, 
+                                   instruction: str, 
+                                   output: str, 
+                                   steps: List[Any] = None) -> str:
         """
-        Takes the list of log objects from the Executor and turns them into 
-        the final "System Response" string.
+        Formats the final response with a professional HUD layout.
+        Includes timestamps and node metadata.
         """
-        # Format logs into a text block the LLM can read
-        log_summary = "\n".join([f"[{log['status']}] {log['message']}" for log in raw_logs])
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        try:
-            chain = self.prompt | self.llm
-            response = await chain.ainvoke({
-                "execution_data": log_summary,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            })
-            return response.content
-        except Exception as e:
-            return f"REPORT_GENERATION_FAILED: {str(e)}\n\nFallback: {log_summary}"
+        # Build the header
+        report = [
+            f"--- V.E.R.A. HUD SYSTEM REPORT ---",
+            f"TIMESTAMP: {timestamp}",
+            f"NODE_ID: {self.node_id}",
+            f"OPERATOR: Ayush Tripathi",
+            f"---"
+        ]
+
+        # Add Reasoning Trace if steps exist (for transparency in math/research)
+        if steps:
+            report.append("\n[REASONING_TRACE]:")
+            for i, (step, result) in enumerate(steps):
+                tool_name = getattr(step, 'tool', 'Logic_Engine')
+                report.append(f" Step {i+1}: Triggered {tool_name} -> {str(result)[:100]}...")
+
+        # Add the Core Response
+        report.append("\n[FINAL_OUTPUT]:")
+        report.append(output)
+        
+        report.append("\n--- END_OF_TRANSMISSION ---")
+
+        return "\n".join(report)
+
+    def format_error(self, error_msg: str) -> str:
+        """
+        Standardizes error reporting for the frontend HUD.
+        """
+        return f"[!] CRITICAL_SYSTEM_ERROR at {self.node_id}\nMESSAGE: {error_msg}"
 
 # Singleton instance
 vera_reporter = NeuralReporter()
