@@ -3,18 +3,17 @@ from typing import List, Dict
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.tools import tool
 
+
 class SensoryEngine:
     """
     Sensing & Intel Gathering Module for V.E.R.A.
-    Powered by Tavily for AI-optimized web crawling.
+    Optimized for clean, structured outputs for LLM reasoning.
     """
 
     def __init__(self):
-        # Initializing the Tavily tool
-        # k=5 ensures enough context without blowing the token budget
         self.search = TavilySearchResults(
             k=5,
-            search_depth="advanced", # Deep crawl for technical accuracy
+            search_depth="advanced",
             include_raw_content=False,
             include_images=False
         )
@@ -22,29 +21,45 @@ class SensoryEngine:
     @tool
     def perform_web_search(self, query: str) -> str:
         """
-        Executes a deep web search to gather real-time data.
-        Ideal for: Latest CVEs, academic conjectures, or stock trends.
+        Executes a web search and returns structured, concise results.
         """
+
         try:
-            # Check for API Key presence
+            # 🔐 API Key Check
             if not os.getenv("TAVILY_API_KEY"):
-                return "SEARCH_ERROR: API_KEY_MISSING in JKIAPT Node."
+                return "SEARCH_ERROR: Missing Tavily API key."
 
-            # Execute search
+            # 🌐 Execute Search
             results = self.search.invoke({"query": query})
-            
+
             if not results:
-                return "No real-time data found for this specific query."
+                return "No relevant real-time results found."
 
-            # Synthesis of results into a readable format for the Agent
-            summary = []
+            # 🧠 Format results for LLM consumption
+            formatted_results = []
+
             for i, res in enumerate(results):
-                summary.append(f"[{i+1}] SOURCE: {res['url']}\nCONTENT: {res['content']}\n")
+                url = res.get("url", "N/A")
+                content = res.get("content", "")
 
-            return "\n".join(summary)
+                # ✂️ Trim long content (important for token control)
+                content = content.strip()
+                if len(content) > 300:
+                    content = content[:300] + "..."
+
+                formatted_results.append(
+                    f"[Result {i+1}]\n"
+                    f"Source: {url}\n"
+                    f"Summary: {content}\n"
+                )
+
+            # 📦 Final structured output
+            return "\n".join(formatted_results)
 
         except Exception as e:
+            print(f"[!] SEARCH_ENGINE_ERROR: {str(e)}")
             return f"SENSOR_FAILURE: {str(e)}"
+
 
 # Singleton instance
 vera_search_engine = SensoryEngine()
