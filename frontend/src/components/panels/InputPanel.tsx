@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 type Props = {
   input: string;
   setInput: (val: string) => void;
@@ -13,8 +15,46 @@ export default function InputPanel({
   execute,
   loading,
 }: Props) {
+  const [listening, setListening] = useState(false);
 
-  // 🔥 Enter to execute (Shift+Enter for newline)
+  // 🎙 Voice Input
+  const startVoice = () => {
+    try {
+      const SpeechRecognition =
+        (window as any).webkitSpeechRecognition ||
+        (window as any).SpeechRecognition;
+
+      if (!SpeechRecognition) {
+        alert("Voice recognition not supported in this browser");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-US";
+
+      setListening(true);
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
+        setListening(false);
+      };
+
+      recognition.onerror = () => {
+        setListening(false);
+      };
+
+      recognition.onend = () => {
+        setListening(false);
+      };
+
+      recognition.start();
+    } catch {
+      setListening(false);
+    }
+  };
+
+  // ⌨ Enter to execute
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -25,13 +65,16 @@ export default function InputPanel({
   };
 
   return (
-    <div className="bg-slate-800/60 backdrop-blur-lg border border-slate-700 rounded-xl p-4 shadow-lg">
+    <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 glow-card">
 
       {/* HEADER */}
       <div className="flex justify-between items-center mb-2">
-        <h2 className="text-green-400 font-semibold">INPUT TERMINAL</h2>
+        <h2 className="text-green-400 text-sm font-semibold tracking-wide">
+          INPUT TERMINAL
+        </h2>
+
         <span className="text-xs text-gray-400">
-          {loading ? "Processing..." : "Ready"}
+          {loading ? "PROCESSING..." : listening ? "LISTENING..." : "READY"}
         </span>
       </div>
 
@@ -51,6 +94,15 @@ export default function InputPanel({
         className="mt-3 w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-black font-bold py-2 rounded transition"
       >
         ▶ EXECUTE
+      </button>
+
+      {/* VOICE BUTTON */}
+      <button
+        onClick={startVoice}
+        disabled={loading}
+        className="mt-2 w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 text-white py-2 rounded transition"
+      >
+        🎙 {listening ? "Listening..." : "Speak"}
       </button>
 
       {/* EXAMPLES */}
