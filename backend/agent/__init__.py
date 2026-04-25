@@ -3,9 +3,9 @@ from typing import List
 from langchain_groq import ChatGroq
 from langchain_community.tools.tavily_search import TavilyAnswer
 
-# UPDATED IMPORTS FOR STABILITY
-from langchain.agents import create_tool_calling_agent
+# STABLE IMPORTS FOR LANGCHAIN 0.3.x
 from langchain.agents.agent import AgentExecutor
+from langchain.agents.tool_calling_agent.base import create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 # --- AGENT INITIALIZATION ---
 
