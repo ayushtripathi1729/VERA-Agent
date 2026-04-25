@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-import { useExecution } from "@/hooks/useExecution";
+import { useExecution } from "../../hooks/useExecution";
 
 import InputPanel from "../panels/InputPanel";
 import StreamPanel from "../panels/StreamPanel";
