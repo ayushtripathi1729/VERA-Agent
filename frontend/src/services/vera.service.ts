@@ -1,17 +1,15 @@
-// src/services/vera.service.ts
-
-export type VeraResponse = {
-  status: string;
-  goal: string;
-  logs: string;
-  raw: any;
-};
+/**
+ * V.E.R.A API Service (Fallback / Direct Calls)
+ */
 
 const BASE_URL = "https://vera-backend-djwd.onrender.com";
 
-export async function runVera(instruction: string): Promise<VeraResponse> {
+/**
+ * Standard execution request (non-streaming fallback)
+ */
+export async function runVera(instruction: string) {
   try {
-    const response = await fetch(`${BASE_URL}/run`, {
+    const res = await fetch(`${BASE_URL}/run`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -19,21 +17,42 @@ export async function runVera(instruction: string): Promise<VeraResponse> {
       body: JSON.stringify({ instruction }),
     });
 
-    if (!response.ok) {
-      throw new Error("Backend error");
+    if (!res.ok) {
+      throw new Error("Server error");
     }
 
-    const data = await response.json();
-    return data;
-
-  } catch (error) {
-    console.error("V.E.R.A API ERROR:", error);
+    const data = await res.json();
 
     return {
-      status: "error",
+      goal: data.goal || "",
+      logs: data.logs || "",
+      raw: data.raw || {},
+    };
+  } catch (error: any) {
+    return {
       goal: "",
-      logs: "❌ Unable to connect to backend.",
-      raw: null,
+      logs: `❌ API ERROR: ${error.message}`,
+      raw: {},
+    };
+  }
+}
+
+/**
+ * Health check (useful for debugging backend status)
+ */
+export async function checkHealth() {
+  try {
+    const res = await fetch(`${BASE_URL}/`);
+
+    if (!res.ok) {
+      throw new Error("Backend not reachable");
+    }
+
+    return await res.json();
+  } catch {
+    return {
+      status: "DOWN",
+      message: "Unable to connect to backend",
     };
   }
 }
