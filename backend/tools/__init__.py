@@ -5,6 +5,8 @@ Centralized hub for all external capabilities (Search, Math, Security).
 
 from langchain_community.tools.tavily_search import TavilyAnswer
 from langchain_core.tools import tool
+from agent.tools.search import get_search_tools
+
 
 # --- CUSTOM TOOL DEFINITIONS ---
 
@@ -48,6 +50,16 @@ def get_default_tools():
     return [
         search,
         calculate_mod_inverse,
+        system_diagnostic
+    ]
+
+def get_default_tools():
+    search_tools = get_search_tools()
+    calc_tools = get_calculator_tools()
+    
+    return [
+        *search_tools,
+        *calc_tools,
         system_diagnostic
     ]
 
