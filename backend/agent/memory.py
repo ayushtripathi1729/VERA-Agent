@@ -1,38 +1,36 @@
-from typing import Dict
-from langchain_core.chat_history import BaseChatMessageHistory, InMemoryChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain.memory import ConversationBufferWindowMemory
+from langchain_core.chat_history import InMemoryChatMessageHistory
 
-# --- SESSION STORE ---
-# This dictionary lives in the server's RAM. 
-# It maps 'session_id' -> 'chat_history_object'
-store: Dict[str, InMemoryChatMessageHistory] = {}
-
-def get_session_history(session_id: str) -> BaseChatMessageHistory:
+class NeuralMemory:
     """
-    Retrieves or creates a chat history for a specific user session.
-    Ensures that Ayush's math discussions don't leak into other queries.
+    Cognitive Retention Layer for V.E.R.A.
+    Uses a sliding window buffer to maintain context while optimizing latency.
     """
-    if session_id not in store:
-        store[session_id] = InMemoryChatMessageHistory()
-    return store[session_id]
 
-def wrap_with_memory(agent_executor):
-    """
-    Wraps the V.E.R.A. executor with the memory protocol.
-    This automatically manages the 'chat_history' variable in your prompt.
-    """
-    return RunnableWithMessageHistory(
-        agent_executor,
-        get_session_history,
-        input_messages_key="input",
-        history_messages_key="chat_history",
-    )
+    def __init__(self, window_size: int = 5):
+        # window_size=5 means it remembers the last 5 full exchanges
+        # perfect for maintaining the thread of a complex coding or math task.
+        self.memory = ConversationBufferWindowMemory(
+            memory_key="chat_history",
+            return_messages=True,
+            k=window_size,
+            chat_memory=InMemoryChatMessageHistory()
+        )
 
-# --- UTILITIES ---
+    def get_context(self) -> dict:
+        """Returns the current state of the conversation for the LLM."""
+        return self.memory.load_memory_variables({})
 
-def clear_session(session_id: str):
-    """Reset the neural memory for a specific session."""
-    if session_id in store:
-        store[session_id].clear()
-        return True
-    return False
+    def add_exchange(self, user_input: str, ai_output: str):
+        """Saves a new interaction into the sliding window."""
+        self.memory.save_context(
+            {"input": user_input},
+            {"output": ai_output}
+        )
+
+    def clear_memory(self):
+        """Resets the neural buffer."""
+        self.memory.clear()
+
+# Singleton instance for persistent session handling
+vera_memory = NeuralMemory()
