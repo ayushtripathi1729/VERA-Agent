@@ -6,8 +6,14 @@ Centralized system settings for easy control and scalability.
 """
 
 # --- MODEL CONFIG ---
-GROQ_MODEL = "llama3-8b-8192"
+# Primary model (stable & fast)
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama3-8b-8192")
+
+# Optional fallback (use in case primary fails)
+GROQ_FALLBACK_MODEL = "mixtral-8x7b-32768"
+
 GROQ_TEMPERATURE = 0.2
+MAX_TOKENS = 2048
 
 # --- EXECUTION CONFIG ---
 MAX_ITERATIONS = 6
