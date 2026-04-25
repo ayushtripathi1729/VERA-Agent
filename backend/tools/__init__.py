@@ -1,15 +1,18 @@
 """
 V.E.R.A. Tool Distribution Hub
 Organizes and exposes sensory and logical capabilities.
+NODE: JKIAPT_PRAYAGRAJ
 """
 
 from typing import List
 from langchain_core.tools import BaseTool
 
-# Internal imports from sub-modules
-from agent.tools.search import vera_search_engine
-from agent.tools.calculator import get_calculator_tools
-from agent.tools.reporter import vera_reporter
+# FIXED IMPORTS: 
+# Since these files are in the same 'tools' folder, 
+# we import directly from the local modules.
+from tools.search import vera_search_engine
+from tools.calculator import get_calculator_tools
+from tools.reporter import vera_reporter
 
 def get_default_tools() -> List[BaseTool]:
     """
@@ -17,16 +20,13 @@ def get_default_tools() -> List[BaseTool]:
     Combines web search, mathematical logic, and synthesis tools.
     """
     
-    # 1. Sensory Tools (Web Search)
+    # 1. Sensory Tools (Web Search via Tavily)
     search_tools = [vera_search_engine.perform_web_search]
     
-    # 2. Logic Tools (Number Theory & Math)
+    # 2. Logic Tools (Number Theory, Modular Arithmetic, Primality)
     math_tools = get_calculator_tools()
     
-    # 3. System Tools (Internal Synthesis)
-    # We don't always pass the reporter as a tool to the agent,
-    # but we expose it here for the Executor to use post-process.
-    
+    # Combined registry for the Agent Executor
     combined_tools = search_tools + math_tools
     
     return combined_tools
