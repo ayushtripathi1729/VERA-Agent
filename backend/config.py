@@ -6,11 +6,11 @@ Centralized system settings for easy control and scalability.
 """
 
 # --- MODEL CONFIG ---
-# Primary model (stable & fast)
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama3-8b-8192")
+# Use a currently supported Groq model
+GROQ_MODEL = os.getenv("GROQ_MODEL", "mixtral-8x7b-32768")
 
-# Optional fallback (use in case primary fails)
-GROQ_FALLBACK_MODEL = "mixtral-8x7b-32768"
+# Optional fallback (not auto-used unless you wire it in)
+GROQ_FALLBACK_MODEL = "gemma-7b-it"
 
 GROQ_TEMPERATURE = 0.2
 MAX_TOKENS = 2048
