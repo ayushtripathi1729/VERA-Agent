@@ -11,21 +11,11 @@ from agent.planner import vera_planner
 from tools import get_default_tools
 from config import GROQ_MODEL
 
-# 🔥 Direct tool imports (FAST PATH)
-from tools.calculator import (
-    basic_compute,
-    primality_test,
-    modular_inverse
-)
+# 🔥 Tools
+from tools.calculator import basic_compute, primality_test, modular_inverse
 
 
 class VERAExecutor:
-    """
-    FINAL STABLE EXECUTOR
-    Hybrid System:
-    - Direct execution for simple tasks
-    - Agent for complex reasoning
-    """
 
     def __init__(self):
         self.llm = ChatGroq(
@@ -53,34 +43,45 @@ class VERAExecutor:
             return_intermediate_steps=True
         )
 
-    # 🔥 FAST PATH (CRITICAL FIX)
+    # 🔥 DIRECT + STEP LOGGING
     def _handle_simple_tasks(self, instruction: str):
         text = instruction.lower()
+
+        steps = []
+        final = ""
 
         try:
             # Arithmetic
             if any(op in text for op in ["+", "-", "*", "/"]):
-                return basic_compute.invoke({"expression": instruction})
+                result = basic_compute.invoke({"expression": instruction})
+                steps.append(("Arithmetic computation", result))
+                final = result
 
             # Prime check
-            if "prime" in text:
+            elif "prime" in text:
                 nums = re.findall(r"\d+", instruction)
                 if nums:
-                    return primality_test.invoke({"n": int(nums[0])})
+                    n = int(nums[0])
+                    result = primality_test.invoke({"n": n})
+                    steps.append((f"Primality test for {n}", result))
+                    final = result
 
             # Modular inverse
-            if "mod" in text or "inverse" in text:
+            elif "mod" in text or "inverse" in text:
                 nums = re.findall(r"\d+", instruction)
                 if len(nums) >= 2:
-                    return modular_inverse.invoke({
-                        "a": int(nums[0]),
-                        "m": int(nums[1])
-                    })
+                    a, m = int(nums[0]), int(nums[1])
+                    result = modular_inverse.invoke({"a": a, "m": m})
+                    steps.append((f"Modular inverse of {a} mod {m}", result))
+                    final = result
 
         except Exception as e:
-            return f"ERROR: {str(e)}"
+            return None, None
 
-        return None  # Not a simple task
+        if steps:
+            return steps, final
+
+        return None, None
 
     async def _execute_step(self, step_input: str, chat_history: list) -> str:
         try:
@@ -94,29 +95,27 @@ class VERAExecutor:
 
     async def execute(self, instruction: str) -> Dict[str, Any]:
         try:
-            # 🔥 STEP 0: DIRECT EXECUTION
-            direct_result = self._handle_simple_tasks(instruction)
-            if direct_result:
+            # 🔥 FAST PATH WITH STEPS
+            steps, final = self._handle_simple_tasks(instruction)
+            if steps:
                 return {
                     "goal": instruction,
-                    "steps": [("Direct Execution", direct_result)],
-                    "final_output": direct_result
+                    "steps": steps,
+                    "final_output": final
                 }
 
-            # 🧠 STEP 1: PLAN
+            # 🧠 PLAN
             plan = await vera_planner.generate_plan(instruction)
 
             goal = plan.get("goal", instruction)
             tasks = plan.get("tasks", [])
 
-            # 🧠 STEP 2: MEMORY
             context = vera_memory.get_context()
             chat_history = context.get("chat_history", [])
 
             steps_log: List[Tuple[str, str]] = []
             final_output = ""
 
-            # 🔁 STEP 3: EXECUTION LOOP
             for task in tasks:
                 step_desc = task.get("description", "")
                 step_output = await self._execute_step(step_desc, chat_history)
@@ -124,10 +123,8 @@ class VERAExecutor:
                 steps_log.append((step_desc, step_output))
                 final_output = step_output
 
-            # 🧠 STEP 4: MEMORY UPDATE
             vera_memory.add_exchange(instruction, final_output)
 
-            # 📦 STEP 5: RETURN
             return {
                 "goal": goal,
                 "steps": steps_log,
@@ -142,5 +139,4 @@ class VERAExecutor:
             }
 
 
-# 🔁 Singleton
 vera_executor = VERAExecutor()
