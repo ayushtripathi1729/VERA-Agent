@@ -1,5 +1,7 @@
 "use client";
 
+import TypingEffect from "../ui/TypingEffect";
+
 type Props = {
   output: string;
   goal: string;
@@ -71,9 +73,10 @@ export default function OutputPanel({ output, goal }: Props) {
         {output && (
           <div>
             <h3 className="text-green-400 font-semibold mb-1">✅ Result</h3>
-            <pre className="bg-black p-3 rounded border border-slate-600 text-green-300 whitespace-pre-wrap">
-              {output}
-            </pre>
+
+            <div className="bg-black p-3 rounded border border-slate-600 text-green-300">
+              <TypingEffect text={output} />
+            </div>
           </div>
         )}
 
