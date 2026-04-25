@@ -1,46 +1,36 @@
 """
-V.E.R.A. Tool Registry
-Centralized hub for all external capabilities (Search, Math, Security).
+V.E.R.A. Tool Distribution Hub
+Organizes and exposes sensory and logical capabilities.
 """
 
-from langchain_core.tools import tool
-from agent.tools.search import get_search_tools
+from typing import List
+from langchain_core.tools import BaseTool
+
+# Internal imports from sub-modules
+from agent.tools.search import vera_search_engine
 from agent.tools.calculator import get_calculator_tools
+from agent.tools.reporter import vera_reporter
 
-# --- CUSTOM SYSTEM TOOLS ---
-
-@tool
-def system_diagnostic() -> str:
+def get_default_tools() -> List[BaseTool]:
     """
-    Returns the current operational status of the V.E.R.A. Neural Core.
-    Usage: When the user asks about system health or node location.
+    Assembles the primary toolset for the V.E.R.A. Neural Core.
+    Combines web search, mathematical logic, and synthesis tools.
     """
-    return (
-        "NODE_STATUS: OPTIMAL\n"
-        "LOCATION: PRAYAGRAJ_JKIAPT_NODE_01\n"
-        "LATENCY: < 50ms (LPU Optimized)\n"
-        "SECURITY_LEVEL: 05 (PROMPT_GUARD_ACTIVE)"
-    )
-
-# --- CONSOLIDATED TOOL COLLECTION ---
-
-def get_default_tools():
-    """
-    Assembles the complete neural toolset for the V.E.R.A. agent.
-    Combines sensory (search), logic (calculator), and system diagnostics.
-    """
-    # 1. Fetch search capabilities (from search.py)
-    search_tools = get_search_tools()
     
-    # 2. Fetch mathematical capabilities (from calculator.py)
-    calc_tools = get_calculator_tools()
+    # 1. Sensory Tools (Web Search)
+    search_tools = [vera_search_engine.perform_web_search]
     
-    # 3. Combine everything into a single operational list
-    return [
-        *search_tools,
-        *calc_tools,
-        system_diagnostic
-    ]
+    # 2. Logic Tools (Number Theory & Math)
+    math_tools = get_calculator_tools()
+    
+    # 3. System Tools (Internal Synthesis)
+    # We don't always pass the reporter as a tool to the agent,
+    # but we expose it here for the Executor to use post-process.
+    
+    combined_tools = search_tools + math_tools
+    
+    return combined_tools
 
-# Exporting for stable imports in executor.py
-__all__ = ["get_default_tools", "system_diagnostic"]
+# Metadata for system diagnostics
+TOTAL_ACTIVE_TOOLS = len(get_default_tools())
+__all__ = ["get_default_tools", "vera_reporter"]
