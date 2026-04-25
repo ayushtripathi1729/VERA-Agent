@@ -41,60 +41,46 @@ body {
   box-shadow: 0 0 20px rgba(34, 197, 94, 0.35);
 }
 
+/* -------------------- TERMINAL STYLE -------------------- */
+pre {
+  font-family: monospace;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+}
+
+/* -------------------- INPUTS -------------------- */
+textarea,
+input {
+  font-family: monospace;
+}
+
 /* -------------------- BUTTONS -------------------- */
 button {
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
-/* -------------------- TERMINAL TEXT -------------------- */
-pre {
-  font-family: monospace;
-  line-height: 1.4;
+/* -------------------- TERMINAL HEADER DOTS -------------------- */
+.terminal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
-/* -------------------- INPUT + TEXTAREA -------------------- */
-textarea,
-input {
-  font-family: monospace;
+.dot-red {
+  background: #ef4444;
 }
 
-/* -------------------- FADE ANIMATION (fallback if needed) -------------------- */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.dot-yellow {
+  background: #facc15;
 }
 
-.animate-fadeIn {
-  animation: fadeIn 0.3s ease-in-out;
+.dot-green {
+  background: #22c55e;
 }
 
-/* -------------------- LOADER DOT ANIMATION -------------------- */
-@keyframes bounceDot {
-  0%, 80%, 100% {
-    transform: scale(0);
-  }
-  40% {
-    transform: scale(1);
-  }
-}
-
-.animate-dot {
-  animation: bounceDot 1.4s infinite ease-in-out both;
-}
-
-/* -------------------- CURSOR BLINK -------------------- */
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.cursor-blink {
-  animation: blink 1s infinite;
+/* -------------------- SELECTION -------------------- */
+::selection {
+  background: rgba(34, 197, 94, 0.4);
+  color: white;
 }
