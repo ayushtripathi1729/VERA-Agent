@@ -3,25 +3,11 @@ V.E.R.A. Tool Registry
 Centralized hub for all external capabilities (Search, Math, Security).
 """
 
-from langchain_community.tools.tavily_search import TavilyAnswer
 from langchain_core.tools import tool
 from agent.tools.search import get_search_tools
+from agent.tools.calculator import get_calculator_tools
 
-
-# --- CUSTOM TOOL DEFINITIONS ---
-
-@tool
-def calculate_mod_inverse(a: int, m: int) -> str:
-    """
-    Calculates the modular multiplicative inverse of a modulo m.
-    Essential for Number Theory and RSA cryptography problems.
-    """
-    try:
-        # Using the extended Euclidean Algorithm logic via pow()
-        result = pow(a, -1, m)
-        return f"The modular inverse of {a} mod {m} is {result}."
-    except ValueError:
-        return f"The modular inverse does not exist for {a} mod {m}."
+# --- CUSTOM SYSTEM TOOLS ---
 
 @tool
 def system_diagnostic() -> str:
@@ -36,27 +22,20 @@ def system_diagnostic() -> str:
         "SECURITY_LEVEL: 05 (PROMPT_GUARD_ACTIVE)"
     )
 
-# --- TOOL COLLECTION ---
+# --- CONSOLIDATED TOOL COLLECTION ---
 
 def get_default_tools():
     """
-    Returns the primary toolset for the V.E.R.A. agent.
-    Combines real-time web search with specialized local utilities.
+    Assembles the complete neural toolset for the V.E.R.A. agent.
+    Combines sensory (search), logic (calculator), and system diagnostics.
     """
-    # 1. Real-time Intel Tool
-    search = TavilyAnswer(max_results=3)
-    
-    # 2. Add your custom tools here
-    return [
-        search,
-        calculate_mod_inverse,
-        system_diagnostic
-    ]
-
-def get_default_tools():
+    # 1. Fetch search capabilities (from search.py)
     search_tools = get_search_tools()
+    
+    # 2. Fetch mathematical capabilities (from calculator.py)
     calc_tools = get_calculator_tools()
     
+    # 3. Combine everything into a single operational list
     return [
         *search_tools,
         *calc_tools,
@@ -64,4 +43,4 @@ def get_default_tools():
     ]
 
 # Exporting for stable imports in executor.py
-__all__ = ["get_default_tools", "calculate_mod_inverse", "system_diagnostic"]
+__all__ = ["get_default_tools", "system_diagnostic"]
