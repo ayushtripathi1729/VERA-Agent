@@ -1,74 +1,70 @@
-from typing import List, Dict, Any
-from pydantic import BaseModel, Field
+from typing import List, Dict
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
+from pydantic import BaseModel, Field
 
-# --- SCHEMAS ---
+# --- DATA STRUCTURES ---
 
 class Task(BaseModel):
-    """Represents a single atomic step in a larger plan."""
-    id: int = Field(description="The unique sequence number of the task.")
-    description: str = Field(description="The specific action to be performed.")
-    reasoning: str = Field(description="Why this step is necessary for the final goal.")
+    step: int = Field(description="The sequence number of the task")
+    description: str = Field(description="Detailed instruction for this specific step")
+    tool_required: str = Field(description="The tool needed (Search, Calculator, or None)")
 
-class Plan(BaseModel):
-    """The full roadmap for V.E.R.A. to follow."""
-    steps: List[Task] = Field(description="A sequential list of tasks.")
-    objective: str = Field(description="The refined understanding of the user's goal.")
+class ExecutionPlan(BaseModel):
+    goal: str = Field(description="The finalized objective of the instruction")
+    tasks: List[Task] = Field(description="List of sequential tasks to achieve the goal")
 
-# --- PLANNER ENGINE ---
+# --- PLANNER CORE ---
 
 class NeuralPlanner:
     """
-    Decomposes high-level instructions into a structured DAG (Directed Acyclic Graph)
-    of sub-tasks for the Executor to process.
+    The Strategic Layer of V.E.R.A.
+    Decomposes complex requests into a structured execution roadmap.
     """
 
     def __init__(self):
-        # Using Llama-3-70b for high-reasoning planning accuracy
         self.llm = ChatGroq(
-            temperature=0,  # Zero temperature for deterministic, logical planning
+            temperature=0, # Absolute zero for logical consistency
             model_name="llama3-70b-8192"
         )
-        self.parser = JsonOutputParser(pydantic_object=Plan)
+        self.parser = JsonOutputParser(pydantic_object=ExecutionPlan)
 
         self.prompt = ChatPromptTemplate.from_template("""
-            SYSTEM PROTOCOL: NEURAL_PLANNER_v3
+            SYSTEM_PROTOCOL: STRATEGIC_PLANNER_v3
             OPERATOR: Ayush Tripathi (JKIAPT)
             
-            ROLE: 
-            You are the strategic planning module for V.E.R.A. 
-            Your job is to take a high-level intent and break it down into a logical, 
-            multi-step plan.
+            ROLE:
+            You are the strategic brain of V.E.R.A. Your task is to analyze the OPERATOR'S 
+            instruction and decompose it into a structured, JSON-formatted execution plan.
             
-            INSTRUCTIONS:
-            1. Analyze the input for hidden complexities (especially in Math/CyberSec).
-            2. Create a linear sequence of steps that ensures zero-fail execution.
-            3. For Number Theory, focus on modularity (Theorem identification -> Lemma check -> Proof).
-            4. For CyberSec, follow the reconnaissance -> scanning -> analysis cycle.
+            CONSTRAINTS:
+            1. Maximize efficiency (minimal steps).
+            2. Identify if a step requires real-time 'Search' or mathematical 'Calculation'.
+            3. If the request is a simple greeting, keep the plan to 1 step.
             
-            USER INPUT: {input}
+            INSTRUCTION: {instruction}
             
             {format_instructions}
         """)
 
-    async def generate_plan(self, user_input: str) -> Plan:
-        """Generates a structured plan based on the input."""
-        chain = self.prompt | self.llm | self.parser
-        
+    async def generate_plan(self, instruction: str) -> Dict:
+        """
+        Generates a structured JSON roadmap for the Executor.
+        """
         try:
-            plan_data = await chain.ainvoke({
-                "input": user_input,
+            chain = self.prompt | self.llm | self.parser
+            plan = await chain.ainvoke({
+                "instruction": instruction,
                 "format_instructions": self.parser.get_format_instructions()
             })
-            return Plan(**plan_data)
+            return plan
         except Exception as e:
-            # Fallback plan if the LLM fails to output valid JSON
-            return Plan(
-                objective=user_input,
-                steps=[Task(id=1, description="Direct execution due to planning bypass.", reasoning="Internal parsing error.")]
-            )
+            # Fallback for simple instructions if JSON parsing fails
+            return {
+                "goal": instruction,
+                "tasks": [{"step": 1, "description": "Direct execution", "tool_required": "None"}]
+            }
 
-# Singleton instance for the system
+# Singleton instance
 vera_planner = NeuralPlanner()
