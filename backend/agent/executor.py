@@ -11,7 +11,7 @@ from agent.planner import vera_planner
 from tools import get_default_tools
 from config import GROQ_MODEL
 
-# 🔥 Tools
+# 🔥 Import tools directly
 from tools.calculator import basic_compute, primality_test, modular_inverse
 
 
@@ -43,43 +43,38 @@ class VERAExecutor:
             return_intermediate_steps=True
         )
 
-    # 🔥 DIRECT + STEP LOGGING
-    def _handle_simple_tasks(self, instruction: str):
+    # 🔥 STRICT TOOL EXECUTION (NO LLM GUESSING)
+    def _solve_math(self, instruction: str):
         text = instruction.lower()
-
         steps = []
-        final = ""
 
         try:
             # Arithmetic
             if any(op in text for op in ["+", "-", "*", "/"]):
                 result = basic_compute.invoke({"expression": instruction})
                 steps.append(("Arithmetic computation", result))
-                final = result
+                return steps, result
 
             # Prime check
-            elif "prime" in text:
+            if "prime" in text:
                 nums = re.findall(r"\d+", instruction)
                 if nums:
                     n = int(nums[0])
                     result = primality_test.invoke({"n": n})
                     steps.append((f"Primality test for {n}", result))
-                    final = result
+                    return steps, result
 
             # Modular inverse
-            elif "mod" in text or "inverse" in text:
+            if "mod" in text or "inverse" in text:
                 nums = re.findall(r"\d+", instruction)
                 if len(nums) >= 2:
                     a, m = int(nums[0]), int(nums[1])
                     result = modular_inverse.invoke({"a": a, "m": m})
                     steps.append((f"Modular inverse of {a} mod {m}", result))
-                    final = result
+                    return steps, result
 
         except Exception as e:
-            return None, None
-
-        if steps:
-            return steps, final
+            return [("Error", str(e))], f"ERROR: {str(e)}"
 
         return None, None
 
@@ -95,16 +90,18 @@ class VERAExecutor:
 
     async def execute(self, instruction: str) -> Dict[str, Any]:
         try:
-            # 🔥 FAST PATH WITH STEPS
-            steps, final = self._handle_simple_tasks(instruction)
+            # 🔥 STEP 1: STRICT MATH HANDLING
+            steps, final = self._solve_math(instruction)
+
             if steps:
+                vera_memory.add_exchange(instruction, final)
                 return {
                     "goal": instruction,
                     "steps": steps,
                     "final_output": final
                 }
 
-            # 🧠 PLAN
+            # 🧠 STEP 2: NORMAL AGENT FLOW
             plan = await vera_planner.generate_plan(instruction)
 
             goal = plan.get("goal", instruction)
@@ -134,7 +131,7 @@ class VERAExecutor:
         except Exception as e:
             return {
                 "goal": instruction,
-                "steps": [],
+                "steps": [("System Error", str(e))],
                 "final_output": f"SYSTEM_FAILURE: {str(e)}"
             }
 
