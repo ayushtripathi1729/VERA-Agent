@@ -1,20 +1,20 @@
 import os
-from typing import List, Dict, Any
+from typing import List, Dict
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.tools import tool
 
-class NeuralSearch:
+class SensoryEngine:
     """
-    Real-time Information Retrieval Engine for V.E.R.A.
-    Optimized for technical, academic, and security-related queries.
+    Sensing & Intel Gathering Module for V.E.R.A.
+    Powered by Tavily for AI-optimized web crawling.
     """
 
     def __init__(self):
-        self.api_key = os.getenv("TAVILY_API_KEY")
-        # TavilySearchResults is built for LLM compatibility
-        self.search_engine = TavilySearchResults(
-            k=5, # Top 5 results for deep context
-            search_depth="advanced", # "advanced" includes more technical/academic sources
+        # Initializing the Tavily tool
+        # k=5 ensures enough context without blowing the token budget
+        self.search = TavilySearchResults(
+            k=5,
+            search_depth="advanced", # Deep crawl for technical accuracy
             include_raw_content=False,
             include_images=False
         )
@@ -22,25 +22,29 @@ class NeuralSearch:
     @tool
     def perform_web_search(self, query: str) -> str:
         """
-        Performs an advanced web search to retrieve real-time data.
-        Use this for current events, technical documentation, or unsolved math problems.
+        Executes a deep web search to gather real-time data.
+        Ideal for: Latest CVEs, academic conjectures, or stock trends.
         """
         try:
-            results = self.search_engine.invoke({"query": query})
+            # Check for API Key presence
+            if not os.getenv("TAVILY_API_KEY"):
+                return "SEARCH_ERROR: API_KEY_MISSING in JKIAPT Node."
+
+            # Execute search
+            results = self.search.invoke({"query": query})
             
-            # Format results into a clean, readable string for the LLM
-            formatted_results = []
-            for res in results:
-                formatted_results.append(f"SOURCE: {res['url']}\nCONTENT: {res['content']}\n")
-            
-            return "\n---\n".join(formatted_results)
-            
+            if not results:
+                return "No real-time data found for this specific query."
+
+            # Synthesis of results into a readable format for the Agent
+            summary = []
+            for i, res in enumerate(results):
+                summary.append(f"[{i+1}] SOURCE: {res['url']}\nCONTENT: {res['content']}\n")
+
+            return "\n".join(summary)
+
         except Exception as e:
-            return f"SEARCH_FAILURE: Unable to reach web sensory node. Error: {str(e)}"
+            return f"SENSOR_FAILURE: {str(e)}"
 
 # Singleton instance
-vera_search_engine = NeuralSearch()
-
-def get_search_tools():
-    """Returns the search utility for the V.E.R.A. toolset."""
-    return [vera_search_engine.perform_web_search]
+vera_search_engine = SensoryEngine()
