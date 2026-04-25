@@ -1,66 +1,72 @@
 "use client";
 
-import { useState } from "react";
-import { runVera, VeraResponse } from "@/services/vera.service";
+import { useState, useRef } from "react";
+import { streamVera } from "@/services/vera.stream";
 
 export function useExecution() {
-  // 🧠 STATE
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [steps, setSteps] = useState<string[]>([]);
   const [output, setOutput] = useState("");
   const [goal, setGoal] = useState("");
+  const [latency, setLatency] = useState(0);
 
-  // 🚀 MAIN EXECUTION FUNCTION
-  const execute = async () => {
-    if (!input.trim()) return;
+  // 🔒 prevent overlapping executions
+  const activeRun = useRef(false);
+
+  const execute = () => {
+    if (!input.trim() || activeRun.current) return;
+
+    activeRun.current = true;
 
     setLoading(true);
+    setSteps([]);
+    setOutput("");
+    setGoal("");
+    setLatency(0);
 
-    // 🔥 Initial fake stream
-    setSteps([
-      "🧠 Initializing V.E.R.A...",
-      "⚙️ Parsing instruction...",
-    ]);
+    const startTime = performance.now();
 
     try {
-      const res: VeraResponse = await runVera(input);
+      streamVera(input, {
+        onStep: (step) => {
+          setSteps((prev) => [...prev, step]);
+        },
 
-      // 🧠 Update goal
-      setGoal(res.goal || "");
+        onGoal: (g) => {
+          setGoal(g);
+        },
 
-      // ⚡ Simulate intelligent step streaming
-      const simulatedSteps = [
-        "🧠 Planning execution...",
-        "🔍 Analyzing problem...",
-        "🛠 Selecting tools...",
-        "⚙️ Executing steps...",
-        "✅ Finalizing output...",
-      ];
+        onFinal: (finalOutput) => {
+          const endTime = performance.now();
+          setLatency(Math.floor(endTime - startTime));
 
-      for (let i = 0; i < simulatedSteps.length; i++) {
-        await new Promise((r) => setTimeout(r, 400));
-        setSteps((prev) => [...prev, simulatedSteps[i]]);
-      }
+          setOutput(finalOutput);
+          setLoading(false);
+          activeRun.current = false;
+        },
 
-      // 📊 Set final output
-      setOutput(res.logs || "No output received.");
-
+        onError: (err) => {
+          setSteps((prev) => [...prev, "❌ " + err]);
+          setLoading(false);
+          activeRun.current = false;
+        },
+      });
     } catch (err) {
-      setOutput("❌ Execution failed. Please check backend.");
-      setSteps((prev) => [...prev, "❌ Error occurred"]);
+      setSteps((prev) => [...prev, "❌ Execution failed"]);
+      setLoading(false);
+      activeRun.current = false;
     }
-
-    setLoading(false);
   };
 
-  // 🔄 RESET FUNCTION
   const reset = () => {
     setInput("");
     setSteps([]);
     setOutput("");
     setGoal("");
+    setLatency(0);
     setLoading(false);
+    activeRun.current = false;
   };
 
   return {
@@ -70,6 +76,7 @@ export function useExecution() {
     steps,
     output,
     goal,
+    latency,
     execute,
     reset,
   };
