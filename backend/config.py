@@ -6,7 +6,7 @@ Centralized system settings for easy control and scalability.
 """
 
 # --- MODEL CONFIG ---
-GROQ_MODEL = "llama3-70b-8192"
+GROQ_MODEL = "llama3-8b-8192"
 GROQ_TEMPERATURE = 0.2
 
 # --- EXECUTION CONFIG ---
