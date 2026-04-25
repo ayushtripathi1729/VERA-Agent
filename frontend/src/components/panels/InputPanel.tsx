@@ -1,39 +1,25 @@
 "use client";
 
-import { useRef } from "react";
-
 type Props = {
   input: string;
   setInput: (val: string) => void;
+  execute: () => void;
   loading: boolean;
-  onRun: () => void;
 };
 
 export default function InputPanel({
   input,
   setInput,
+  execute,
   loading,
-  onRun,
 }: Props) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 🔥 Auto resize textarea
-  const handleChange = (value: string) => {
-    setInput(value);
-
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height =
-        textareaRef.current.scrollHeight + "px";
-    }
-  };
-
-  // ⚡ Enter to execute
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  // 🔥 Enter to execute (Shift+Enter for newline)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (!loading && input.trim()) {
-        onRun();
+        execute();
       }
     }
   };
@@ -51,21 +37,23 @@ export default function InputPanel({
 
       {/* TEXTAREA */}
       <textarea
-        ref={textareaRef}
         value={input}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Enter your instruction... (Press Enter to execute)"
-        className="w-full min-h-[120px] max-h-[300px] resize-none p-3 rounded-md bg-black text-green-300 border border-slate-600 focus:outline-none focus:ring-1 focus:ring-green-500 transition-all"
+        placeholder="Enter instruction... (Press Enter to execute)"
+        className="w-full min-h-[120px] resize-none p-3 rounded-md bg-black text-green-300 border border-slate-600 focus:outline-none focus:ring-1 focus:ring-green-500"
       />
 
-      {/* FOOTER */}
-      <div className="mt-2 flex justify-between text-xs text-gray-500">
-        <span>↵ Enter to run</span>
-        <span>Shift + Enter for new line</span>
-      </div>
+      {/* ACTION BUTTON */}
+      <button
+        onClick={execute}
+        disabled={loading || !input.trim()}
+        className="mt-3 w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-black font-bold py-2 rounded transition"
+      >
+        ▶ EXECUTE
+      </button>
 
-      {/* EXAMPLE PROMPTS */}
+      {/* EXAMPLES */}
       <div className="mt-3 flex flex-wrap gap-2">
         {[
           "Check if 97 is prime",
