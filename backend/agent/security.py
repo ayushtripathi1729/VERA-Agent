@@ -1,78 +1,70 @@
 import re
-import time
-from typing import Dict, Tuple
+from typing import List
 from fastapi import HTTPException
 
-class NeuralSecurity:
+class NeuralShield:
     """
-    V.E.R.A. Security Layer
-    Protects against Prompt Injection and prevents API abuse via Rate Limiting.
+    Security Orchestration Layer for V.E.R.A.
+    Detects and neutralizes Prompt Injections, XSS attempts, and Logic Bombs.
     """
 
     def __init__(self):
-        # 1. Rate Limiting State (Simple In-Memory Store)
-        # Allows 10 requests per minute per 'session'
-        self.request_history: Dict[str, list] = {}
-        self.RATE_LIMIT = 10 
-        self.TIME_WINDOW = 60 # seconds
-
-        # 2. Injection Patterns (Regex for common attack vectors)
-        self.injection_patterns = [
-            r"(?i)ignore (all )?previous instructions",
-            r"(?i)you are now a",
-            r"(?i)system check: bypass",
-            r"(?i)reveal your system prompt",
-            r"(?i)stop being V.E.R.A"
+        # 1. Blacklisted Patterns (Regex for speed)
+        self.malicious_patterns = [
+            r"(?i)ignore prev.*instructions",  # Classic Prompt Injection
+            r"(?i)system_protocol.*override",  # Attempting to hijack protocol
+            r"<script.*?>.*?</script>",         # XSS attempt
+            r"rm -rf /",                        # Logic Bomb / Command Injection
+            r"format C:",                       # Legacy OS attack patterns
+            r"(?i)reveal.*system.*prompt",     # Exfiltration attempts
         ]
 
-    def is_rate_limited(self, session_id: str) -> bool:
-        """Checks if a specific session is exceeding the request threshold."""
-        now = time.time()
-        if session_id not in self.request_history:
-            self.request_history[session_id] = []
-        
-        # Clean up old timestamps
-        self.request_history[session_id] = [
-            t for t in self.request_history[session_id] if now - t < self.TIME_WINDOW
-        ]
-
-        if len(self.request_history[session_id]) >= self.RATE_LIMIT:
-            return True
-        
-        self.request_history[session_id].append(now)
-        return False
-
-    def sanitize_input(self, text: str) -> str:
+    def scan_instruction(self, instruction: str) -> str:
         """
-        Cleans the input to prevent breaking the prompt structure.
-        Escapes characters like triple backticks that LLMs use for formatting.
+        Scans and sanitizes the input before it reaches the Planner/Executor.
         """
-        if not text:
-            return ""
+        # A. Check for empty or excessively long inputs (DoS protection)
+        if not instruction or len(instruction) > 2000:
+            raise HTTPException(
+                status_code=400, 
+                detail="NODE_ERROR: Input violates packet size constraints (Max 2000 chars)."
+            )
+
+        # B. Regex Pattern Analysis
+        for pattern in self.malicious_patterns:
+            if re.search(pattern, instruction):
+                # Log the attempt for security auditing
+                print(f"[!] SECURITY_ALERT: Malicious pattern detected in session.")
+                raise HTTPException(
+                    status_code=403, 
+                    detail="ACCESS_DENIED: Instruction violates JKIAPT Security Protocol v5."
+                )
+
+        # C. Basic Sanitization (Escaping HTML chars)
+        sanitized = (
+            instruction.replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("'", "''") # Basic SQLi precaution
+        )
         
-        # Escape triple backticks to prevent Markdown injection
-        safe_text = text.replace("```", "'''")
+        return sanitized
+
+    def filter_output(self, output: str) -> str:
+        """
+        Post-processing to ensure the LLM doesn't leak internal keys or paths.
+        """
+        # Masking sensitive strings if they somehow appear in output
+        sensitive_keywords = ["AKIA", "GROQ_", "TAVILY_"] # API key patterns
+        for key in sensitive_keywords:
+            output = output.replace(key, "[REDACTED_BY_SHIELD]")
         
-        # Check for known injection phrases
-        for pattern in self.injection_patterns:
-            if re.search(pattern, safe_text):
-                # We don't block it (to avoid annoying the user), 
-                # but we wrap it in a warning for the LLM
-                return f"[POTENTIAL_INJECTION_WARNING] {safe_text}"
-        
-        return safe_text
+        return output
 
 # Singleton instance
-vera_security = NeuralSecurity()
+vera_shield = NeuralShield()
 
 def secure_gatekeeper(instruction: str, session_id: str = "default") -> str:
     """
-    The primary function to wrap all user inputs.
-    Usage: safe_input = secure_gatekeeper(user_input, session_id)
+    Standard entry function for main.py to call.
     """
-    # Check Rate Limit
-    if vera_security.is_rate_limited(session_id):
-        raise HTTPException(status_code=429, detail="NEURAL_LINK_THROTTLED: Too many requests. Wait 60s.")
-    
-    # Sanitize Content
-    return vera_security.sanitize_input(instruction)
+    return vera_shield.scan_instruction(instruction)
