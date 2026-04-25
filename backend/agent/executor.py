@@ -10,116 +10,118 @@ from agent.planner import vera_planner
 from tools import get_default_tools
 from config import GROQ_MODEL
 
+# 🔥 Import tools directly
+from tools.calculator import (
+    basic_compute,
+    primality_test,
+    modular_inverse
+)
+
 
 class VERAExecutor:
     """
-    V.E.R.A Execution Core
-    PLAN → EXECUTE → MEMORY → OUTPUT
+    FINAL STABLE EXECUTOR (Hybrid System)
     """
 
     def __init__(self):
-        # 🔥 LLM Initialization
         self.llm = ChatGroq(
             temperature=0.2,
             model_name=GROQ_MODEL,
             groq_api_key=os.getenv("GROQ_API_KEY")
         )
 
-        # 🧠 Prompt
         self.prompt = get_core_prompt()
-
-        # 🛠 Tools
         self.tools = get_default_tools()
 
-        # 🤖 Agent
         self._agent = create_tool_calling_agent(
             self.llm,
             self.tools,
             self.prompt
         )
 
-        # ⚙️ Executor (stable config)
         self.executor = AgentExecutor(
             agent=self._agent,
             tools=self.tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=10,  # increased to avoid early stop
+            max_iterations=5,
             early_stopping_method="force",
             return_intermediate_steps=True
         )
 
+    # 🔥 DIRECT TOOL EXECUTION (CRITICAL FIX)
+    def _handle_simple_tasks(self, instruction: str) -> str:
+        text = instruction.lower()
+
+        try:
+            # Arithmetic
+            if any(op in text for op in ["+", "-", "*", "/"]):
+                return basic_compute.invoke({"expression": instruction})
+
+            # Prime check
+            if "prime" in text:
+                import re
+                nums = re.findall(r"\d+", instruction)
+                if nums:
+                    return primality_test.invoke({"n": int(nums[0])})
+
+            # Modular inverse
+            if "mod" in text or "inverse" in text:
+                import re
+                nums = re.findall(r"\d+", instruction)
+                if len(nums) >= 2:
+                    return modular_inverse.invoke({
+                        "a": int(nums[0]),
+                        "m": int(nums[1])
+                    })
+
+        except Exception as e:
+            return f"ERROR: {str(e)}"
+
+        return None  # not a simple task
+
     async def _execute_step(self, step_input: str, chat_history: list) -> str:
-        for attempt in range(2):
-            try:
-                response = await self.executor.ainvoke({
-                    "input": step_input,
-                    "chat_history": chat_history
-                })
-                return response.get("output", "")
-            except Exception as e:
-                if attempt == 1:
-                    return f"STEP_FAILED: {str(e)}"
+        try:
+            response = await self.executor.ainvoke({
+                "input": step_input,
+                "chat_history": chat_history
+            })
+            return response.get("output", "")
+        except Exception as e:
+            return f"STEP_FAILED: {str(e)}"
 
     async def execute(self, instruction: str) -> Dict[str, Any]:
         try:
-            # 🧠 PLAN
+            # 🔥 STEP 0: DIRECT EXECUTION (FAST PATH)
+            direct_result = self._handle_simple_tasks(instruction)
+            if direct_result:
+                return {
+                    "goal": instruction,
+                    "steps": [("Direct Execution", direct_result)],
+                    "final_output": direct_result
+                }
+
+            # 🧠 PLAN (for complex tasks)
             plan = await vera_planner.generate_plan(instruction)
 
             goal = plan.get("goal", instruction)
             tasks = plan.get("tasks", [])
 
-            # 🧠 MEMORY
             context = vera_memory.get_context()
             chat_history = context.get("chat_history", [])
 
             steps_log: List[Tuple[str, str]] = []
             final_output = ""
 
-            # 🔁 EXECUTION LOOP
             for task in tasks:
                 step_desc = task.get("description", "")
-                tool_type = task.get("tool_required", "None")
-
-                lower_desc = step_desc.lower()
-
-                # 🧠 SMART (NOT FORCED) TOOL GUIDANCE
-                if (
-                    "prime" in lower_desc
-                    or "mod" in lower_desc
-                    or "inverse" in lower_desc
-                    or "calculate" in lower_desc
-                    or any(op in lower_desc for op in ["+", "-", "*", "/", "^"])
-                ):
-                    step_input = f"""
-Solve this task carefully.
-
-Task: {step_desc}
-
-Use tools if needed:
-- basic_compute → arithmetic
-- primality_test → prime check
-- modular_inverse → modular inverse
-"""
-                elif tool_type == "Search":
-                    step_input = f"""
-Use search tools if needed.
-
-Task: {step_desc}
-"""
-                else:
-                    step_input = step_desc
-
-                # ⚙️ Execute
-                step_output = await self._execute_step(step_input, chat_history)
+                step_output = await self._execute_step(step_desc, chat_history)
 
                 steps_log.append((step_desc, step_output))
                 final_output = step_output
 
-            # 🧠 MEMORY UPDATE
             vera_memory.add_exchange(instruction, final_output)
 
-            # 📦 RETURN
             return {
                 "goal": goal,
                 "steps": steps_log,
@@ -134,5 +136,4 @@ Task: {step_desc}
             }
 
 
-# 🔁 Singleton
 vera_executor = VERAExecutor()
