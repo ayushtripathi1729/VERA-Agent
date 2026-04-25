@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Loader from "../ui/Loader";
 
 type Props = {
   steps: string[];
@@ -42,12 +43,8 @@ export default function StreamPanel({ steps, loading }: Props) {
           </div>
         ))}
 
-        {/* 🔥 Live indicator */}
-        {loading && (
-          <div className="text-yellow-400 animate-pulse">
-            ⚡ Processing...
-          </div>
-        )}
+        {/* 🔥 Loader */}
+        {loading && <Loader />}
 
         <div ref={bottomRef} />
       </div>
