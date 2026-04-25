@@ -38,13 +38,13 @@ class VERAExecutor:
             self.prompt
         )
 
-        # ⚙️ Executor (fixed compatibility)
+        # ⚙️ Executor (stable config)
         self.executor = AgentExecutor(
             agent=self._agent,
             tools=self.tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=6,
+            max_iterations=10,  # increased to avoid early stop
             early_stopping_method="force",
             return_intermediate_steps=True
         )
@@ -83,7 +83,7 @@ class VERAExecutor:
 
                 lower_desc = step_desc.lower()
 
-                # 🔥 SMART TOOL ROUTING (FINAL FIX)
+                # 🧠 SMART (NOT FORCED) TOOL GUIDANCE
                 if (
                     "prime" in lower_desc
                     or "mod" in lower_desc
@@ -92,19 +92,18 @@ class VERAExecutor:
                     or any(op in lower_desc for op in ["+", "-", "*", "/", "^"])
                 ):
                     step_input = f"""
-You MUST use calculator tools.
+Solve this task carefully.
 
 Task: {step_desc}
 
-Rules:
-- Arithmetic → use basic_compute
-- Prime check → use primality_test
-- Modular inverse → use modular_inverse
-- DO NOT answer directly
+Use tools if needed:
+- basic_compute → arithmetic
+- primality_test → prime check
+- modular_inverse → modular inverse
 """
                 elif tool_type == "Search":
                     step_input = f"""
-Use search tools to solve:
+Use search tools if needed.
 
 Task: {step_desc}
 """
