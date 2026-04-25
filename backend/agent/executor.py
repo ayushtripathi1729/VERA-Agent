@@ -13,19 +13,19 @@ from config import GROQ_MODEL
 
 class VERAExecutor:
     """
-    The Operational Core of V.E.R.A.
+    V.E.R.A Execution Core
     PLAN → EXECUTE → MEMORY → OUTPUT
     """
 
     def __init__(self):
-        # 🔥 LLM Initialization (FINAL STABLE MODEL)
+        # 🔥 LLM Initialization
         self.llm = ChatGroq(
             temperature=0.2,
             model_name=GROQ_MODEL,
             groq_api_key=os.getenv("GROQ_API_KEY")
         )
 
-        # 🧠 System Prompt
+        # 🧠 Prompt
         self.prompt = get_core_prompt()
 
         # 🛠 Tools
@@ -38,21 +38,18 @@ class VERAExecutor:
             self.prompt
         )
 
-        # ⚙️ Executor (COMPATIBLE VERSION)
+        # ⚙️ Executor (fixed compatibility)
         self.executor = AgentExecutor(
             agent=self._agent,
             tools=self.tools,
             verbose=True,
             handle_parsing_errors=True,
             max_iterations=6,
-            early_stopping_method="force",  # ✅ FIXED (was 'generate')
+            early_stopping_method="force",
             return_intermediate_steps=True
         )
 
     async def _execute_step(self, step_input: str, chat_history: list) -> str:
-        """
-        Executes a single step with retry logic.
-        """
         for attempt in range(2):
             try:
                 response = await self.executor.ainvoke({
@@ -65,46 +62,65 @@ class VERAExecutor:
                     return f"STEP_FAILED: {str(e)}"
 
     async def execute(self, instruction: str) -> Dict[str, Any]:
-        """
-        Main execution pipeline:
-        PLAN → EXECUTE → MEMORY → RETURN
-        """
         try:
-            # 🧠 1. PLAN
+            # 🧠 PLAN
             plan = await vera_planner.generate_plan(instruction)
 
             goal = plan.get("goal", instruction)
             tasks = plan.get("tasks", [])
 
-            # 🧠 2. MEMORY
+            # 🧠 MEMORY
             context = vera_memory.get_context()
             chat_history = context.get("chat_history", [])
 
             steps_log: List[Tuple[str, str]] = []
             final_output = ""
 
-            # 🔁 3. EXECUTE STEPS
+            # 🔁 EXECUTION LOOP
             for task in tasks:
                 step_desc = task.get("description", "")
                 tool_type = task.get("tool_required", "None")
 
-                # 🎯 Tool hinting
-                if tool_type == "Calculator":
-                    step_input = f"Use math reasoning: {step_desc}"
+                lower_desc = step_desc.lower()
+
+                # 🔥 SMART TOOL ROUTING (FINAL FIX)
+                if (
+                    "prime" in lower_desc
+                    or "mod" in lower_desc
+                    or "inverse" in lower_desc
+                    or "calculate" in lower_desc
+                    or any(op in lower_desc for op in ["+", "-", "*", "/", "^"])
+                ):
+                    step_input = f"""
+You MUST use calculator tools.
+
+Task: {step_desc}
+
+Rules:
+- Arithmetic → use basic_compute
+- Prime check → use primality_test
+- Modular inverse → use modular_inverse
+- DO NOT answer directly
+"""
                 elif tool_type == "Search":
-                    step_input = f"Search and analyze: {step_desc}"
+                    step_input = f"""
+Use search tools to solve:
+
+Task: {step_desc}
+"""
                 else:
                     step_input = step_desc
 
+                # ⚙️ Execute
                 step_output = await self._execute_step(step_input, chat_history)
 
                 steps_log.append((step_desc, step_output))
                 final_output = step_output
 
-            # 🧠 4. MEMORY UPDATE
+            # 🧠 MEMORY UPDATE
             vera_memory.add_exchange(instruction, final_output)
 
-            # 📦 5. RETURN
+            # 📦 RETURN
             return {
                 "goal": goal,
                 "steps": steps_log,
