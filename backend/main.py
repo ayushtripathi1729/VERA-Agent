@@ -30,7 +30,7 @@ print("[✓] V.E.R.A Node Initialized Successfully")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://vera-agent-frontend.vercel.app",
+        "https://vera-agent-frontend-zeta.vercel.app",
         "http://localhost:3000"
     ],
     allow_credentials=True,
