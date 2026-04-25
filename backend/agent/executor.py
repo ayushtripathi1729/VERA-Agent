@@ -14,11 +14,10 @@ from config import GROQ_MODEL
 class VERAExecutor:
     """
     The Operational Core of V.E.R.A.
-    PLAN → STEP EXECUTION → STATE LOGGING → MEMORY
     """
 
     def __init__(self):
-        # 🔥 LLM Initialization (no deprecated models)
+        # 🔥 LLM Initialization (FINAL FIXED MODEL)
         self.llm = ChatGroq(
             temperature=0.2,
             model_name=GROQ_MODEL,
@@ -28,7 +27,7 @@ class VERAExecutor:
         # 🧠 System Prompt
         self.prompt = get_core_prompt()
 
-        # 🛠 Toolbelt
+        # 🛠 Tools
         self.tools = get_default_tools()
 
         # 🤖 Agent
@@ -50,9 +49,6 @@ class VERAExecutor:
         )
 
     async def _execute_step(self, step_input: str, chat_history: list) -> str:
-        """
-        Executes a single step with retry logic.
-        """
         for attempt in range(2):
             try:
                 response = await self.executor.ainvoke({
@@ -65,50 +61,40 @@ class VERAExecutor:
                     return f"STEP_FAILED: {str(e)}"
 
     async def execute(self, instruction: str) -> Dict[str, Any]:
-        """
-        Main execution pipeline:
-        PLAN → EXECUTE → LOG → RETURN STRUCTURED OUTPUT
-        """
         try:
-            # 🧠 1. GENERATE PLAN
+            # 🧠 PLAN
             plan = await vera_planner.generate_plan(instruction)
 
             goal = plan.get("goal", instruction)
             tasks = plan.get("tasks", [])
 
-            # 🧠 2. LOAD MEMORY
+            # 🧠 MEMORY
             context = vera_memory.get_context()
             chat_history = context.get("chat_history", [])
 
             steps_log: List[Tuple[str, str]] = []
             final_output = ""
 
-            # 🔁 3. EXECUTE EACH STEP
+            # 🔁 EXECUTION LOOP
             for task in tasks:
                 step_desc = task.get("description", "")
                 tool_type = task.get("tool_required", "None")
 
-                # 🎯 TOOL GUIDANCE
                 if tool_type == "Calculator":
-                    step_input = f"Use mathematical reasoning or calculator tools: {step_desc}"
+                    step_input = f"Use math reasoning: {step_desc}"
                 elif tool_type == "Search":
-                    step_input = f"Search and analyze relevant information: {step_desc}"
+                    step_input = f"Search and analyze: {step_desc}"
                 else:
                     step_input = step_desc
 
-                # ⚙️ Execute step
                 step_output = await self._execute_step(step_input, chat_history)
 
-                # 🧾 Log step
                 steps_log.append((step_desc, step_output))
-
-                # Update final output
                 final_output = step_output
 
-            # 🧠 4. UPDATE MEMORY
+            # 🧠 MEMORY UPDATE
             vera_memory.add_exchange(instruction, final_output)
 
-            # 📦 5. RETURN STRUCTURED RESULT
             return {
                 "goal": goal,
                 "steps": steps_log,
@@ -116,7 +102,6 @@ class VERAExecutor:
             }
 
         except Exception as e:
-            print(f"[!] EXECUTOR_CRITICAL: {str(e)}")
             return {
                 "goal": instruction,
                 "steps": [],
@@ -124,5 +109,5 @@ class VERAExecutor:
             }
 
 
-# 🔁 Singleton
+# Singleton
 vera_executor = VERAExecutor()
