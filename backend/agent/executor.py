@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Dict, Any, List, Tuple
 
 from langchain_groq import ChatGroq
@@ -10,7 +11,7 @@ from agent.planner import vera_planner
 from tools import get_default_tools
 from config import GROQ_MODEL
 
-# 🔥 Import tools directly
+# 🔥 Direct tool imports (FAST PATH)
 from tools.calculator import (
     basic_compute,
     primality_test,
@@ -20,7 +21,10 @@ from tools.calculator import (
 
 class VERAExecutor:
     """
-    FINAL STABLE EXECUTOR (Hybrid System)
+    FINAL STABLE EXECUTOR
+    Hybrid System:
+    - Direct execution for simple tasks
+    - Agent for complex reasoning
     """
 
     def __init__(self):
@@ -49,8 +53,8 @@ class VERAExecutor:
             return_intermediate_steps=True
         )
 
-    # 🔥 DIRECT TOOL EXECUTION (CRITICAL FIX)
-    def _handle_simple_tasks(self, instruction: str) -> str:
+    # 🔥 FAST PATH (CRITICAL FIX)
+    def _handle_simple_tasks(self, instruction: str):
         text = instruction.lower()
 
         try:
@@ -60,14 +64,12 @@ class VERAExecutor:
 
             # Prime check
             if "prime" in text:
-                import re
                 nums = re.findall(r"\d+", instruction)
                 if nums:
                     return primality_test.invoke({"n": int(nums[0])})
 
             # Modular inverse
             if "mod" in text or "inverse" in text:
-                import re
                 nums = re.findall(r"\d+", instruction)
                 if len(nums) >= 2:
                     return modular_inverse.invoke({
@@ -78,7 +80,7 @@ class VERAExecutor:
         except Exception as e:
             return f"ERROR: {str(e)}"
 
-        return None  # not a simple task
+        return None  # Not a simple task
 
     async def _execute_step(self, step_input: str, chat_history: list) -> str:
         try:
@@ -92,7 +94,7 @@ class VERAExecutor:
 
     async def execute(self, instruction: str) -> Dict[str, Any]:
         try:
-            # 🔥 STEP 0: DIRECT EXECUTION (FAST PATH)
+            # 🔥 STEP 0: DIRECT EXECUTION
             direct_result = self._handle_simple_tasks(instruction)
             if direct_result:
                 return {
@@ -101,18 +103,20 @@ class VERAExecutor:
                     "final_output": direct_result
                 }
 
-            # 🧠 PLAN (for complex tasks)
+            # 🧠 STEP 1: PLAN
             plan = await vera_planner.generate_plan(instruction)
 
             goal = plan.get("goal", instruction)
             tasks = plan.get("tasks", [])
 
+            # 🧠 STEP 2: MEMORY
             context = vera_memory.get_context()
             chat_history = context.get("chat_history", [])
 
             steps_log: List[Tuple[str, str]] = []
             final_output = ""
 
+            # 🔁 STEP 3: EXECUTION LOOP
             for task in tasks:
                 step_desc = task.get("description", "")
                 step_output = await self._execute_step(step_desc, chat_history)
@@ -120,8 +124,10 @@ class VERAExecutor:
                 steps_log.append((step_desc, step_output))
                 final_output = step_output
 
+            # 🧠 STEP 4: MEMORY UPDATE
             vera_memory.add_exchange(instruction, final_output)
 
+            # 📦 STEP 5: RETURN
             return {
                 "goal": goal,
                 "steps": steps_log,
@@ -136,4 +142,5 @@ class VERAExecutor:
             }
 
 
+# 🔁 Singleton
 vera_executor = VERAExecutor()
