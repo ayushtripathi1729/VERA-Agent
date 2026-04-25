@@ -1,75 +1,131 @@
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List, Tuple
+
 from langchain_groq import ChatGroq
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 
-# FIXED IMPORTS: 
-# Since 'tools' is a sibling to 'agent', we import from top-level 'tools'
 from agent import get_core_prompt
 from agent.memory import vera_memory
-from tools import get_default_tools 
+from agent.planner import vera_planner
+from tools import get_default_tools
+
 
 class VERAExecutor:
     """
     The Operational Core of V.E.R.A.
-    Coordinates LLM reasoning, Memory retrieval, and Tool execution.
+    Now implements:
+    PLAN → STEP EXECUTION → STATE LOGGING → MEMORY
     """
 
     def __init__(self):
-        # Initialize the LPU-powered Llama 3 model
-        # Temperature is low (0.2) to ensure mathematical and technical accuracy.
+        # 🔥 LLM Initialization (optimized for reasoning)
         self.llm = ChatGroq(
             temperature=0.2,
             model_name="llama3-70b-8192",
             groq_api_key=os.getenv("GROQ_API_KEY")
         )
-        
-        # Load the centralized System DNA
+
+        # 🧠 System Prompt
         self.prompt = get_core_prompt()
-        
-        # Load the sensory and logic toolbelt from backend/tools/
+
+        # 🛠 Toolbelt
         self.tools = get_default_tools()
-        
-        # Initialize the agent logic
-        self._agent = create_tool_calling_agent(self.llm, self.tools, self.prompt)
-        
-        # The Executor manages the Thought-Action-Observation loop
+
+        # 🤖 Agent
+        self._agent = create_tool_calling_agent(
+            self.llm,
+            self.tools,
+            self.prompt
+        )
+
+        # ⚙️ Executor (controlled loop)
         self.executor = AgentExecutor(
             agent=self._agent,
             tools=self.tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=10,      # High depth for complex math conjectures
+            max_iterations=6,  # reduced for stability + speed
+            early_stopping_method="generate",
             return_intermediate_steps=True
         )
 
-    async def execute(self, instruction: str) -> str:
+    async def _execute_step(self, step_input: str, chat_history: list) -> str:
         """
-        The primary execution entry point. 
-        Handles stateful memory and asynchronous processing.
+        Executes a single step with retry logic.
+        """
+        for attempt in range(2):  # retry once
+            try:
+                response = await self.executor.ainvoke({
+                    "input": step_input,
+                    "chat_history": chat_history
+                })
+                return response.get("output", "")
+
+            except Exception as e:
+                if attempt == 1:
+                    return f"STEP_FAILED: {str(e)}"
+
+    async def execute(self, instruction: str) -> Dict[str, Any]:
+        """
+        Main execution pipeline:
+        PLAN → EXECUTE → LOG → RETURN STRUCTURED OUTPUT
         """
         try:
-            # 1. Retrieve the last 5 exchanges from the Neural Memory
+            # 🧠 1. GENERATE PLAN
+            plan = await vera_planner.generate_plan(instruction)
+
+            # 🧾 Extract plan details
+            goal = plan.get("goal", instruction)
+            tasks = plan.get("tasks", [])
+
+            # 🧠 2. LOAD MEMORY
             context = vera_memory.get_context()
             chat_history = context.get("chat_history", [])
 
-            # 2. Invoke the agentic reasoning process
-            response = await self.executor.ainvoke({
-                "input": instruction,
-                "chat_history": chat_history
-            })
+            steps_log: List[Tuple[str, str]] = []
+            final_output = ""
 
-            final_output = response["output"]
+            # 🔁 3. EXECUTE EACH STEP
+            for task in tasks:
+                step_desc = task.get("description", "")
+                tool_type = task.get("tool_required", "None")
 
-            # 3. Commit the new exchange to the sliding window memory
+                # 🎯 TOOL GUIDANCE (boosts accuracy)
+                if tool_type == "Calculator":
+                    step_input = f"Use mathematical reasoning or calculator tools: {step_desc}"
+                elif tool_type == "Search":
+                    step_input = f"Search and analyze relevant information: {step_desc}"
+                else:
+                    step_input = step_desc
+
+                # ⚙️ Execute step
+                step_output = await self._execute_step(step_input, chat_history)
+
+                # 🧾 Log step
+                steps_log.append((step_desc, step_output))
+
+                # Update final output (last step wins)
+                final_output = step_output
+
+            # 🧠 4. UPDATE MEMORY
             vera_memory.add_exchange(instruction, final_output)
 
-            return final_output
+            # 📦 5. RETURN STRUCTURED RESULT
+            return {
+                "goal": goal,
+                "steps": steps_log,
+                "final_output": final_output
+            }
 
         except Exception as e:
-            # Error recovery for Node JKIAPT_01
             print(f"[!] EXECUTOR_CRITICAL: {str(e)}")
-            return f"SYSTEM_FAILURE: Unable to process instruction due to: {str(e)}"
 
-# Singleton instance for server-wide reuse
+            return {
+                "goal": instruction,
+                "steps": [],
+                "final_output": f"SYSTEM_FAILURE: {str(e)}"
+            }
+
+
+# 🔁 Singleton
 vera_executor = VERAExecutor()
