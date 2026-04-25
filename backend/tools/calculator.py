@@ -1,77 +1,125 @@
 import math
+import re
 from langchain_core.tools import tool
+
 
 class NeuralCalculator:
     """
     Advanced Mathematical Logic Node for V.E.R.A.
-    Specialized in Number Theory and Cryptographic primitives.
+    Specialized in Number Theory and safe computation.
     """
+
+    # 🔐 Strict allowed math functions
+    SAFE_FUNCTIONS = {
+        "abs": abs,
+        "round": round,
+        "sqrt": math.sqrt,
+        "log": math.log,
+        "log10": math.log10,
+        "sin": math.sin,
+        "cos": math.cos,
+        "tan": math.tan,
+        "pi": math.pi,
+        "e": math.e,
+        "pow": pow
+    }
+
+    # 🔍 Safe expression validation (only math chars)
+    SAFE_PATTERN = re.compile(r"^[0-9\.\+\-\*\/\^\(\)\s,a-zA-Z]+$")
 
     @tool
     def basic_compute(self, expression: str) -> str:
         """
-        Evaluates standard mathematical expressions safely.
+        Safely evaluates mathematical expressions.
         Example: 'sqrt(144) + log10(100)'
         """
         try:
-            # Using a restricted scope for security
-            allowed_names = {
-                "abs": abs, "round": round, 
-                "sqrt": math.sqrt, "log": math.log, "log10": math.log10,
-                "sin": math.sin, "cos": math.cos, "tan": math.tan,
-                "pi": math.pi, "e": math.e, "pow": pow
-            }
-            return str(eval(expression, {"__builtins__": None}, allowed_names))
+            if not expression or not self.SAFE_PATTERN.match(expression):
+                return "COMPUTE_ERROR: Invalid or unsafe expression."
+
+            # Replace ^ with ** for exponentiation
+            expression = expression.replace("^", "**")
+
+            result = eval(expression, {"__builtins__": None}, self.SAFE_FUNCTIONS)
+            return f"Result: {result}"
+
         except Exception as e:
             return f"COMPUTE_ERROR: {str(e)}"
 
     @tool
     def modular_inverse(self, a: int, m: int) -> str:
         """
-        Calculates the modular multiplicative inverse of 'a' modulo 'm'.
-        Critical for RSA and Number Theory problems.
+        Computes modular inverse using Python's optimized pow().
         """
         try:
-            # pow(a, -1, m) is the most efficient way in Python 3.8+
+            if m == 0:
+                return "ERROR: Modulus cannot be zero."
+
             result = pow(a, -1, m)
-            return f"The modular inverse of {a} mod {m} is {result}."
+            return f"mod_inverse({a}, {m}) = {result}"
+
         except ValueError:
-            return f"Modular inverse does not exist (gcd({a}, {m}) != 1)."
+            return f"No modular inverse exists (gcd({a}, {m}) ≠ 1)."
+        except Exception as e:
+            return f"ERROR: {str(e)}"
 
     @tool
     def primality_test(self, n: int) -> str:
         """
-        Performs a robust primality test.
-        Uses Miller-Rabin logic for large integers.
+        Efficient primality test (optimized trial division).
         """
-        if n < 2: return f"{n} is not prime."
-        if n in (2, 3): return f"{n} is prime."
-        if n % 2 == 0: return f"{n} is composite (divisible by 2)."
-        
-        # Simple deterministic check for smaller numbers
-        # Can be scaled to full Miller-Rabin for research-grade work
-        for i in range(3, int(math.sqrt(n)) + 1, 2):
-            if n % i == 0:
-                return f"{n} is composite (factor: {i})."
-        return f"{n} is a prime number."
+        try:
+            if n < 2:
+                return f"{n} is not prime."
+
+            if n in (2, 3):
+                return f"{n} is prime."
+
+            if n % 2 == 0:
+                return f"{n} is composite (divisible by 2)."
+
+            # Optimized loop (6k ± 1)
+            i = 5
+            while i * i <= n:
+                if n % i == 0 or n % (i + 2) == 0:
+                    return f"{n} is composite (factor found)."
+                i += 6
+
+            return f"{n} is prime."
+
+        except Exception as e:
+            return f"ERROR: {str(e)}"
 
     @tool
     def erdos_straus_check(self, n: int) -> str:
         """
-        Assists in verifying the Erdős–Straus conjecture for a given n.
-        Finds x, y, z such that 4/n = 1/x + 1/y + 1/z.
+        Attempts to verify Erdős–Straus conjecture: 4/n = 1/x + 1/y + 1/z
+        Uses optimized bounded search.
         """
-        # Heuristic search for the Egyptian fraction decomposition
-        for x in range(1, 1000): # Iterative search depth
-            for y in range(x, 1000):
-                # Solving for z: 1/z = 4/n - 1/x - 1/y
-                denom = (4 * x * y) - (n * y) - (n * x)
-                if denom > 0 and (n * x * y) % denom == 0:
-                    z = (n * x * y) // denom
-                    return f"Conjecture verified for n={n}: 4/{n} = 1/{x} + 1/{y} + 1/{z}"
-        return f"No solution found within current search depth for n={n}."
+        try:
+            if n < 2:
+                return "Invalid input: n must be ≥ 2."
 
-# Helper to export tools to the registry
+            LIMIT = 500  # reduced for performance
+
+            for x in range(1, LIMIT):
+                for y in range(x, LIMIT):
+                    denom = (4 * x * y) - (n * y) - (n * x)
+                    if denom <= 0:
+                        continue
+
+                    if (n * x * y) % denom == 0:
+                        z = (n * x * y) // denom
+                        return f"4/{n} = 1/{x} + 1/{y} + 1/{z}"
+
+            return f"No solution found within search limit ({LIMIT})."
+
+        except Exception as e:
+            return f"ERROR: {str(e)}"
+
+
+# --- TOOL EXPORT ---
+
 def get_calculator_tools():
     calc = NeuralCalculator()
     return [
