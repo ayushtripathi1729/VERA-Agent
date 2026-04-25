@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Loader from "../ui/Loader";
-import Terminal from "../../ui/Terminal";
+import Terminal from "../terminal/Terminal";
 
 type Props = {
   steps: string[];
