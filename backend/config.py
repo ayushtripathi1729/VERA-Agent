@@ -2,15 +2,11 @@ import os
 
 """
 V.E.R.A. Configuration Module
-Centralized system settings for easy control and scalability.
 """
 
 # --- MODEL CONFIG ---
-# Use a currently supported Groq model
-GROQ_MODEL = os.getenv("GROQ_MODEL", "mixtral-8x7b-32768")
-
-# Optional fallback (not auto-used unless you wire it in)
-GROQ_FALLBACK_MODEL = "gemma-7b-it"
+# Stable Groq model (works as of now)
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
 GROQ_TEMPERATURE = 0.2
 MAX_TOKENS = 2048
